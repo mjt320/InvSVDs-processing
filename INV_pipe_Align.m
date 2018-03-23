@@ -2,14 +2,15 @@ function INV_pipe_Align(opts)
 %align to first volume
 %and generate mean pre-contrast image
 
-delete([opts.DCENIIDir '/bet*']); delete([opts.DCENIIDir '/rDCE*']); delete('DCE3D*');
+delete([opts.DCENIIDir '/bet*']); delete([opts.DCENIIDir '/rDCE*']); delete('DCE3D*'); delete([opts.DCENIIDir '/meanPre.nii']);
 
 load([opts.DCENIIDir '/acqPars']);
 
-refFile=[opts.DCENIIDir '/betDCE3D0000'];
+betRefFile=[opts.DCENIIDir '/betDCE3D0000'];
+refFile=[opts.DCENIIDir '/DCE3D0000'];
 
-system(['fslsplit ' opts.DCENIIDir '/DCE ' opts.DCENIIDir '/DCE3D -t']);
-system(['bet2 ' opts.DCENIIDir '/DCE3D0000 ' refFile]);
+system(['fslsplit ' opts.DCENIIDir '/DCE ' opts.DCENIIDir '/DCE3D -t']); %split 4D file to 3D files
+system(['bet ' opts.DCENIIDir '/DCE3D0000 ' betRefFile ' -R -m']); %brain-extract first volume
 
 outFileList=[opts.DCENIIDir '/DCE3D0000'];
 for iFrame=2:acqPars.DCENFrames
@@ -18,23 +19,20 @@ for iFrame=2:acqPars.DCENFrames
     matFile=[opts.DCENIIDir '/rDCE3DMat' num2str(iFrame-1,'%04d') '.txt'];
     outFile=[opts.DCENIIDir '/rDCE3D' num2str(iFrame-1,'%04d')];
     outFileList=[outFileList ' ' outFile];
-    system(['bet2 ' inFile ' ' inFileBET]);
-    system(['flirt -cost normmi -in ' inFileBET ' -ref ' refFile ' -omat ' matFile]);
-    system(['flirt -applyxfm -in ' inFile ' -ref ' refFile ' -out ' outFile ' -init ' matFile]);
+    system(['flirt -refweight ' betRefFile '_mask -cost normmi '...
+        ' -nosearch '...
+        ' -in ' inFile ' -ref ' refFile ' -out ' outFile ' -omat ' matFile ' -dof 6']); %calculate transform from this volume to first volume
+%        ' -searchrx -30 30 -searchry -30 30 -searchrz -30 30 -coarsesearch 20 -finesearch 6 '...
 end
-system(['fslmerge -t ' opts.DCENIIDir '/rDCE ' outFileList]);
+system(['fslmerge -t ' opts.DCENIIDir '/rDCE ' outFileList]); %merge co-reg images into 4D file
 system(['fslchfiletype NIFTI ' opts.DCENIIDir '/rDCE']);
 
-delete([opts.DCENIIDir '/*3D*']);
+delete([opts.DCENIIDir '/*3D*']); %delete 3D files
 
-SI4DHdr=spm_vol([opts.DCENIIDir '/rDCE.nii']);
+SI4DHdr=spm_vol([opts.DCENIIDir '/rDCE.nii']); %load co-reg data to calculate mean pre-contrast image
 [SI4D,temp]=spm_read_vols(SI4DHdr);
-meanPreContrast=squeeze(mean(SI4D(:,:,:,1:opts.DCENFramesBase),4));
-volOut=SI4DHdr(1);
-volOut.dim=[SI4DHdr(1).dim(1:3)];
-%volOut.dt=[datatype 0];
-volOut.fname=[opts.DCENIIDir '/meanPre.nii'];
-delete(volOut.fname);
-spm_write_vol(volOut,meanPreContrast);
+
+meanPreContrast=squeeze(mean(SI4D(:,:,:,1:opts.DCENFramesBase),4)); %calculate average pre-contrast image
+SPMWrite4D(SI4DHdr,meanPreContrast,opts.DCENIIDir,'meanPre',SI4DHdr(1).dt)
 
 end
