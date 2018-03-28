@@ -1,6 +1,7 @@
 function INV_pipe_Align(opts)
 %align to first volume
 %and generate mean pre-contrast image
+%this version uses bet to create mask for masking registration
 
 delete([opts.DCENIIDir '/bet*']); delete([opts.DCENIIDir '/rDCE*']); delete('DCE3D*'); delete([opts.DCENIIDir '/meanPre.nii']);
 
