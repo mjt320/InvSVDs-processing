@@ -1,13 +1,13 @@
 function INV_pipe_Align_McFlirt(opts)
 
-delete([opts.DCENIIDir '/bet*']); delete([opts.DCENIIDir '/rDCE*']); delete('DCE3D*'); delete([opts.DCENIIDir '/meanPre.nii']);
+delete([opts.DCENIIDir '/bet*']); delete([opts.DCENIIDir '/rDCE*']); delete('DCE3D*'); delete([opts.DCENIIDir '/meanPre.nii']); delete([opts.DCENIIDir '/*.par']);
 
 load([opts.DCENIIDir '/acqPars']);
 
 betRefFile=[opts.DCENIIDir '/betDCE3D0000'];
 refFile=[opts.DCENIIDir '/DCE3D0000'];
 
-system(['mcflirt -in ' opts.DCENIIDir '/DCE -out ' opts.DCENIIDir '/rDCE -plots -mats']);
+system(['mcflirt -refvol 1 -in ' opts.DCENIIDir '/DCE -out ' opts.DCENIIDir '/rDCE -plots']);
 system(['fslchfiletype NIFTI ' opts.DCENIIDir '/rDCE']);
 
 SI4DHdr=spm_vol([opts.DCENIIDir '/rDCE.nii']); %load co-reg data to calculate mean pre-contrast image

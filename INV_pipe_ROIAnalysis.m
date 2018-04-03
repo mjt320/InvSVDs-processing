@@ -15,10 +15,10 @@ SI4D=spm_read_vols(spm_vol([opts.DCENIIDir '/rDCE.nii']));
 load([opts.DCENIIDir '/acqPars']);
 
 %% load Patlak maps for comparison, if available
-sampleMaps = (exist([opts.DCENIIDir '/Patlak_vP.nii'],'file')==2) && (exist([opts.DCENIIDir '/Patlak_PSperMin.nii'],'file')==2);
+sampleMaps = (exist([opts.DCENIIDir '/PatlakFast_vP.nii'],'file')==2) && (exist([opts.DCENIIDir '/PatlakFast_PSperMin.nii'],'file')==2);
 if sampleMaps
-    Patlak_vP_map=spm_read_vols(spm_vol([opts.DCENIIDir '/Patlak_vP.nii']));
-    Patlak_PSperMin_map=spm_read_vols(spm_vol([opts.DCENIIDir '/Patlak_PSperMin.nii']));
+    Patlak_vP_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_vP.nii']));
+    Patlak_PSperMin_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_PSperMin.nii']));
 end
 
 %% derive parameters
