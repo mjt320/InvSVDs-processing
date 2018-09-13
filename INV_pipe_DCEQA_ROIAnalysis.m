@@ -1,9 +1,6 @@
-function INV_pipe_ROIAnalysis(opts)
-%note that AIF data is stored in the last entry of arrays, with
-%concentration stored as plasma (Cp) values
-close all;
+function INV_pipe_DCEQA_ROIAnalysis(opts)
 
-if opts.overwrite==0 && exist([opts.DCEROIProcDir '/ROIData.mat'],'file'); return; end
+close all;
 
 load([opts.DCENIIDir '/acqPars']);
 
@@ -12,63 +9,36 @@ mkdir(opts.DCEROIProcDir); delete([opts.DCEROIProcDir '/*.*']);
 
 %% load 4D DCE and other data
 SI4D=spm_read_vols(spm_vol([opts.DCENIIDir '/rDCE.nii']));
-[T1Map_s,temp]=spm_read_vols(spm_vol([opts.DCENIIDir '/rT1.nii']));
-[kMap,temp]=spm_read_vols(spm_vol([opts.DCENIIDir '/rk.nii']));
 load([opts.DCENIIDir '/acqPars']);
-
-%% load Patlak maps for comparison, if available
-sampleMaps = (exist([opts.DCENIIDir '/PatlakFast_vP.nii'],'file')==2) && (exist([opts.DCENIIDir '/PatlakFast_PSperMin.nii'],'file')==2);
-if sampleMaps
-    Patlak_vP_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_vP.nii']));
-    Patlak_PSperMin_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_PSperMin.nii']));
-end
 
 %% derive parameters
 NROIs=size(opts.ROINames,2);
 NTimePoints=size(SI4D,1);
-FAMap_deg=kMap * acqPars.FA_deg;
 ROIData.t_S=((1:acqPars.DCENFrames)-0.5)*acqPars.tRes_s; %calculate time at centre of each acquisition relative to start of DCE - used only for plotting
-maskNames=[opts.ROINames opts.AIFName];
+maskNames=[opts.ROINames];
+
 
 %% initialise variables
-ROIData.SI=nan(acqPars.DCENFrames,NROIs+1); %includes space for AIF
-ROIData.T1_s=nan(1,NROIs+1); %includes space for AIF
-ROIData.FA_deg=nan(1,NROIs+1); %includes space for AIF
-ROIData.S0=nan(acqPars.DCENFrames,NROIs+1); %includes space for AIF
-ROIData.enhPct=nan(acqPars.DCENFrames,NROIs+1); %includes space for AIF
-ROIData.conc_mM=nan(acqPars.DCENFrames,NROIs+1); %includes space for AIF
-ROIData.concFit_mM=nan(acqPars.DCENFrames,NROIs); %includes space for AIF
-ROIData.Patlak=[]; %Patlak results
-ROIData.PatlakLinear=[]; %linear Patlak results
-ROIData.PatlakMap_PSperMin=nan(1,NROIs); %Patlak results, sampled from parameter maps
-ROIData.PatlakMap_vP=nan(1,NROIs); %Patlak results, sampled from parameter maps
+ROIData.signal=nan(acqPars.DCENFrames,NROIs);
+ROIData.slope_perS=nan(1,NROIs);
+ROIData.intercept=nan(1,NROIs);
+ROIData.slope_PctPerS=nan(1,NROIs);
+ROIData.changePct=nan(1,NROIs);
+ROIData.signalFit=nan(acqPars.DCENFrames,NROIs);
 
-%%Get ROI signals, FA and T1
-for iROI=1:NROIs+1 %(includes AIF)
-    temp=measure4D(SI4D,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.SI(:,iROI)=temp.mean;
-    temp=measure4D(T1Map_s,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.T1_s(1,iROI)=temp.median;
-    temp=measure4D(FAMap_deg,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.FA_deg(1,iROI)=temp.median;
-    
-    if sampleMaps
-        if iROI<=NROIs %get ROI PK parameters from parameter maps for comparison
-            temp=measure4D(Patlak_vP_map,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.PatlakMap_vP(1,iROI)=temp.median;
-            temp=measure4D(Patlak_PSperMin_map,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.PatlakMap_PSperMin(1,iROI)=temp.median;
-        end
-    end
-    
-    %%Calculate ROI enhancements (includes AIF)
-    ROIData.enhPct=DCEFunc_Sig2Enh(ROIData.SI,1:opts.DCENFramesBase);
-    
-    %%Calculate ROI concentrations (includes AIF)
-    ROIData.conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.enhPct,ROIData.T1_s,acqPars.TR_s,acqPars.TE_s,ROIData.FA_deg,opts.r1_permMperS,opts.r2s_permMperS);
-    ROIData.conc_mM(:,end)=ROIData.conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
-end
-
-%%Calculate ROI PK parameters (excludes AIF)
+%%get mean ROI signals
 for iROI=1:NROIs
-    [ROIData.Patlak, ROIData.concFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.conc_mM(:,1:end-1),ROIData.conc_mM(:,end),'Patlak',struct('NIgnore',opts.NIgnore,'init_vP',opts.init_vP,'init_PS_perMin',opts.init_PS_perMin));
-    [ROIData.PatlakLinear, ROIData.concFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.conc_mM(:,1:end-1),ROIData.conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore,'init_vP',opts.init_vP,'init_PS_perMin',opts.init_PS_perMin));
+    temp=measure4D(SI4D,[opts.DCEROIDir '/' maskNames{iROI} '.nii']);
+    ROIData.signal(:,iROI)=temp.mean;
 end
+
+%% fit all signals
+lineFitObject=DCEFunc_fitLine(acqPars.tRes_s,ROIData.signal(:,:));
+ROIData.slope_perS(1,:)=lineFitObject.slope_perS;
+ROIData.slope_pctPerS(1,:)=lineFitObject.slope_pctPerS;
+ROIData.intercept(1,:)=lineFitObject.intercept;
+ROIData.changePct(1,:)=lineFitObject.changePct;
+ROIData.signalFit(:,:)=lineFitObject.signalFit;
 
 %%Plot data and results
 for iROI=1:NROIs

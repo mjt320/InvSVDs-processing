@@ -1,6 +1,8 @@
 function INV_pipe_getAcqPars(opts)
 %read dicom headers
 
+if opts.overwrite==0 && exist([opts.DCENIIDir '/acqPars.mat'],'file'); return; end
+
 dicoms=dir([opts.DCEDicomDir '/*.dcm']);
 if isempty(dicoms); dicoms=dir([opts.DCEDicomDir '/*.IMA']); end
 

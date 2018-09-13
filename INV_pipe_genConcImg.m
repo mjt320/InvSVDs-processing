@@ -1,5 +1,7 @@
 function INV_pipe_genConcImg(opts)
 
+if opts.overwrite==0 && exist([opts.DCENIIDir '/ConcmM.nii'],'file'); return; end
+
 delete([opts.DCENIIDir '/*Enh*.*']); delete([opts.DCENIIDir '/*Conc*.*'])
 
 load([opts.DCENIIDir '/acqPars']);
@@ -28,7 +30,7 @@ conc2DmM=DCEFunc_Enh2Conc_SPGR(enhancement2DPct,T1Map_s(:).',acqPars.TR_s,acqPar
 enhancement4DPct=DCEFunc_reshape(enhancement2DPct,[size(SI4D,1) size(SI4D,2) size(SI4D,3)]);
 conc4DmM=DCEFunc_reshape(conc2DmM,[size(SI4D,1) size(SI4D,2) size(SI4D,3)]);
 
-%...and smoothed versions
+%...and smoothed versions (using unsmoothed T1 and FA maps)
 sSI4DHdr=spm_vol([opts.DCENIIDir '/srDCE.nii']);
 [sSI4D,temp]=spm_read_vols(sSI4DHdr);
 sSI2D=DCEFunc_reshape(sSI4D);

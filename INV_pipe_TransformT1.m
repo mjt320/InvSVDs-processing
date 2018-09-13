@@ -1,6 +1,8 @@
 function INV_pipe_TransformT1(opts)
 %align T1 and k image to first volume of DCE
 
+if opts.overwrite==0 && exist([opts.DCENIIDir '/rT1.nii'],'file'); return; end
+
 delete([opts.DCENIIDir '/rT1*.*']);
 delete([opts.DCENIIDir '/rk*.*']);
 delete([opts.DCENIIDir '/T1ToDCE.txt']);
