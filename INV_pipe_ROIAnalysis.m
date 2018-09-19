@@ -43,14 +43,21 @@ ROIData.PatlakLinear=[]; %linear Patlak results
 ROIData.PatlakMap_PSperMin=nan(1,NROIs); %Patlak results, sampled from parameter maps
 ROIData.PatlakMap_vP=nan(1,NROIs); %Patlak results, sampled from parameter maps
 
-%%Get ROI signals, FA and T1
 for iROI=1:NROIs+1 %(includes AIF)
-    temp=measure4D(SI4D,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.SI(:,iROI)=temp.mean;
+    
+    if ~exist([opts.DCEROIDir '/' maskNames{iROI} '.nii'],'file');
+        disp(['Warning! ROI not found: ' opts.DCEROIDir '/' maskNames{iROI} '.nii']);
+        continue;
+    end
+
+    %%Get ROI signals, FA and T1
+    temp=measure4D(SI4D,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.SI(:,iROI)=temp.median;
     temp=measure4D(T1Map_s,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.T1_s(1,iROI)=temp.median;
     temp=measure4D(FAMap_deg,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.FA_deg(1,iROI)=temp.median;
     
+    %get ROI PK parameters from parameter maps for comparison
     if sampleMaps
-        if iROI<=NROIs %get ROI PK parameters from parameter maps for comparison
+        if iROI<=NROIs 
             temp=measure4D(Patlak_vP_map,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.PatlakMap_vP(1,iROI)=temp.median;
             temp=measure4D(Patlak_PSperMin_map,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.PatlakMap_PSperMin(1,iROI)=temp.median;
         end
@@ -64,21 +71,22 @@ for iROI=1:NROIs+1 %(includes AIF)
     ROIData.conc_mM(:,end)=ROIData.conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
 end
 
-%%Calculate ROI PK parameters (excludes AIF)
-for iROI=1:NROIs
-    [ROIData.Patlak, ROIData.concFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.conc_mM(:,1:end-1),ROIData.conc_mM(:,end),'Patlak',struct('NIgnore',opts.NIgnore,'init_vP',opts.init_vP,'init_PS_perMin',opts.init_PS_perMin));
-    [ROIData.PatlakLinear, ROIData.concFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.conc_mM(:,1:end-1),ROIData.conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore,'init_vP',opts.init_vP,'init_PS_perMin',opts.init_PS_perMin));
-end
 
-%%Plot data and results
 for iROI=1:NROIs
+    if ~exist([opts.DCEROIDir '/' maskNames{iROI} '.nii'],'file'); continue; end
+    
+    %%Calculate ROI PK parameters (excludes AIF)
+    [ROIData.Patlak, ROIData.concFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.conc_mM(:,1:end-1),ROIData.conc_mM(:,end),'PatlakFast',struct('NIgnore',opts.NIgnore));
+    [ROIData.PatlakLinear, ROIData.concFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.conc_mM(:,1:end-1),ROIData.conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore));
+    
+    %%Plot data and results
     figure(iROI)
     set(gcf,'Units','centimeters','Position',[50,0,30,30],'PaperPositionMode','auto')
     
     subplot(4,2,1) %signal intensity
     plot(ROIData.t_S,ROIData.SI(:,iROI),'b.:')
     xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.SI(:,iROI))-10 max(ROIData.SI(:,iROI))+10]);
-    title([maskNames{iROI} ': mean SI'])
+    title([maskNames{iROI} ':  SI'])
     xlabel('time (s)');
     
     subplot(4,2,2) %enhancement
@@ -87,7 +95,6 @@ for iROI=1:NROIs
     title([maskNames{iROI} ': enhancement (%)'])
     xlabel('time (s)');
     line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
-    
     
     subplot(4,2,3) %concentration and Patlak fit
     plot(ROIData.t_S,ROIData.conc_mM(:,iROI),'b.:')
@@ -101,7 +108,7 @@ for iROI=1:NROIs
     subplot(4,2,4) %VIF signal intensity
     plot(ROIData.t_S,ROIData.SI(:,end),'b.:')
     xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.SI(:,end))-100 max(ROIData.SI(:,end))+200]);
-    title([maskNames{end} ': mean SI'])
+    title([maskNames{end} ': SI'])
     xlabel('time (s)');
     
     subplot(4,2,5) %VIF enhancement
@@ -123,7 +130,7 @@ for iROI=1:NROIs
     title({...
         [strrep(opts.subjectCode,'_','-')];...
         ['ROI: ' maskNames{iROI}];...
-        ['Patlak / Linear Patlak results:'];...
+        ['Patlak / Patlak plot results:'];...
         ['PS (10^{-4} per min): ' num2str(1e4*ROIData.Patlak.PS_perMin(1,iROI),'%.5f')...
         ' / ' num2str(1e4*ROIData.PatlakLinear.PS_perMin(1,iROI),'%.5f')];...
         ['vP: ' num2str(ROIData.Patlak.vP(1,iROI),'%.5f')...
@@ -144,12 +151,14 @@ for iROI=1:NROIs
     plot(ROIData.PatlakLinear.PatlakX(opts.NIgnore+1:end,iROI),ROIData.PatlakLinear.PatlakYFit(opts.NIgnore+1:end,iROI),'b-')
     xlim([min(ROIData.PatlakLinear.PatlakX(opts.NIgnore+1:end,iROI)) max(ROIData.PatlakLinear.PatlakX(opts.NIgnore+1:end,iROI))]); ylim([min(ROIData.PatlakLinear.PatlakY(opts.NIgnore+1:end,iROI)) max(ROIData.PatlakLinear.PatlakY(opts.NIgnore+1:end,iROI))]);
     ylim([0 max(ROIData.PatlakLinear.PatlakY(opts.NIgnore+1:end,iROI))]);
-    title([maskNames{iROI} ': linearised Patlak model fit'])
+    title([maskNames{iROI} ': Patlak plot fit'])
     xlabel('X (s)'); ylabel('Y');
+    
+    %save figure
+    saveas(iROI,[opts.DCEROIProcDir '/ROI_results_' maskNames{iROI} '.jpg']);
 end
 
-%% Print figures and save data
-for iROI=1:NROIs; saveas(iROI,[opts.DCEROIProcDir '/ROI_results_' maskNames{iROI} '.jpg']); end
+%% Save data
 save([opts.DCEROIProcDir '/ROIData'],'ROIData');
 
 end
