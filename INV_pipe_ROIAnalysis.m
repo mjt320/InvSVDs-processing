@@ -81,7 +81,7 @@ for iROI=1:NROIs
     
     %%Plot data and results
     figure(iROI)
-    set(gcf,'Units','centimeters','Position',[50,0,30,30],'PaperPositionMode','auto')
+    set(gcf,'Units','centimeters','Position',[50,0,30,30],'PaperPositionMode','auto','DefaultTextInterpreter', 'none')
     
     subplot(4,2,1) %signal intensity
     plot(ROIData.t_S,ROIData.SI(:,iROI),'b.:')
