@@ -1,37 +1,34 @@
 function INV_pipe_ROIAnalysis(opts)
-%note that AIF data is stored in the last entry of arrays, with
-%concentration stored as plasma (Cp) values
+%note that AIF data is stored in the last entry of the arrays as plasma (Cp) values
 close all;
 
 if opts.overwrite==0 && exist([opts.DCEROIProcDir '/ROIData.mat'],'file'); return; end
 
-load([opts.DCENIIDir '/acqPars']);
-
-%% make output directory delete existing output files
+%% make output directory and delete existing output files
 mkdir(opts.DCEROIProcDir); delete([opts.DCEROIProcDir '/*.*']);
 
-%% load 4D DCE and other data
+%% load 4D DCE, T1 data and acquisition parameters
 SI4D=spm_read_vols(spm_vol([opts.DCENIIDir '/rDCE.nii']));
 [T1Map_s,temp]=spm_read_vols(spm_vol([opts.DCENIIDir '/rT1.nii']));
 [kMap,temp]=spm_read_vols(spm_vol([opts.DCENIIDir '/rk.nii']));
 load([opts.DCENIIDir '/acqPars']);
 
-%% load Patlak maps for comparison, if available
-sampleMaps = (exist([opts.DCENIIDir '/PatlakFast_vP.nii'],'file')==2) && (exist([opts.DCENIIDir '/PatlakFast_PSperMin.nii'],'file')==2);
-if sampleMaps
+%% load Patlak parameter maps (for comparison), if available
+isSampleMaps = (exist([opts.DCENIIDir '/PatlakFast_vP.nii'],'file')==2) && (exist([opts.DCENIIDir '/PatlakFast_PSperMin.nii'],'file')==2);
+if isSampleMaps
     Patlak_vP_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_vP.nii']));
     Patlak_PSperMin_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_PSperMin.nii']));
 end
 
 %% derive parameters
-NROIs=size(opts.ROINames,2);
+NROIs=size(opts.ROINames,2); %number of ROIs excluding AIF
 NTimePoints=size(SI4D,1);
-FAMap_deg=kMap * acqPars.FA_deg;
+FAMap_deg=kMap * acqPars.FA_deg; %obtain FA map by scaling nominal flip angle by k
 ROIData.t_S=((1:acqPars.DCENFrames)-0.5)*acqPars.tRes_s; %calculate time at centre of each acquisition relative to start of DCE - used only for plotting
 maskNames=[opts.ROINames opts.AIFName];
 
 %% initialise variables
-ROIData.SI=nan(acqPars.DCENFrames,NROIs+1); %includes space for AIF
+ROIData.SI=nan(acqPars.DCENFrames,NROIs+1); %array of signals (time,ROI). includes space for AIF
 ROIData.T1_s=nan(1,NROIs+1); %includes space for AIF
 ROIData.FA_deg=nan(1,NROIs+1); %includes space for AIF
 ROIData.S0=nan(acqPars.DCENFrames,NROIs+1); %includes space for AIF
@@ -39,47 +36,48 @@ ROIData.enhPct=nan(acqPars.DCENFrames,NROIs+1); %includes space for AIF
 ROIData.conc_mM=nan(acqPars.DCENFrames,NROIs+1); %includes space for AIF
 ROIData.concFit_mM=nan(acqPars.DCENFrames,NROIs); %includes space for AIF
 ROIData.Patlak=[]; %Patlak results
-ROIData.PatlakLinear=[]; %linear Patlak results
+ROIData.PatlakLinear=[]; %linear graphical Patlak results
 ROIData.PatlakMap_PSperMin=nan(1,NROIs); %Patlak results, sampled from parameter maps
 ROIData.PatlakMap_vP=nan(1,NROIs); %Patlak results, sampled from parameter maps
 
+%% loop through ROIs and determine signals, enhancements, concentrations etc.
 for iROI=1:NROIs+1 %(includes AIF)
     
-    if ~exist([opts.DCEROIDir '/' maskNames{iROI} '.nii'],'file');
+    if ~exist([opts.DCEROIDir '/' maskNames{iROI} '.nii'],'file'); %skip ROIs where mask doesn't exist
         disp(['Warning! ROI not found: ' opts.DCEROIDir '/' maskNames{iROI} '.nii']);
         continue;
     end
 
-    %%Get ROI signals, FA and T1
+    %% Get ROI signals, FA and T1 (using MEDIAN signals/values)
     temp=measure4D(SI4D,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.SI(:,iROI)=temp.median;
     temp=measure4D(T1Map_s,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.T1_s(1,iROI)=temp.median;
     temp=measure4D(FAMap_deg,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.FA_deg(1,iROI)=temp.median;
     
-    %get ROI PK parameters from parameter maps for comparison
-    if sampleMaps
+    %% get a second set of Patlak parameters from the Patlak parameter maps for comparison (using MEDIANS)
+    if isSampleMaps
         if iROI<=NROIs 
             temp=measure4D(Patlak_vP_map,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.PatlakMap_vP(1,iROI)=temp.median;
             temp=measure4D(Patlak_PSperMin_map,[opts.DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.PatlakMap_PSperMin(1,iROI)=temp.median;
         end
     end
     
-    %%Calculate ROI enhancements (includes AIF)
+    %% Calculate ROI enhancements (includes AIF)
     ROIData.enhPct=DCEFunc_Sig2Enh(ROIData.SI,1:opts.DCENFramesBase);
     
-    %%Calculate ROI concentrations (includes AIF)
+    %% Calculate ROI concentrations (includes AIF)
     ROIData.conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.enhPct,ROIData.T1_s,acqPars.TR_s,acqPars.TE_s,ROIData.FA_deg,opts.r1_permMperS,opts.r2s_permMperS);
     ROIData.conc_mM(:,end)=ROIData.conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
 end
 
-
-for iROI=1:NROIs
-    if ~exist([opts.DCEROIDir '/' maskNames{iROI} '.nii'],'file'); continue; end
+%% loop through ROIs (excluding AIF) and fit Patlak model
+for iROI=1:NROIs %(excludes AIF)
+    if ~exist([opts.DCEROIDir '/' maskNames{iROI} '.nii'],'file'); continue; end  %skip ROIs where mask doesn't exist
     
-    %%Calculate ROI PK parameters (excludes AIF)
+    %% Calculate ROI PK parameters (excludes AIF)
     [ROIData.Patlak, ROIData.concFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.conc_mM(:,1:end-1),ROIData.conc_mM(:,end),'PatlakFast',struct('NIgnore',opts.NIgnore));
     [ROIData.PatlakLinear, ROIData.concFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.conc_mM(:,1:end-1),ROIData.conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore));
     
-    %%Plot data and results
+    %% Plot data and results
     figure(iROI)
     set(gcf,'Units','centimeters','Position',[50,0,30,30],'PaperPositionMode','auto','DefaultTextInterpreter', 'none')
     
@@ -145,7 +143,7 @@ for iROI=1:NROIs
         },'VerticalAlignment','top','HorizontalAlignment','left','Position',[0 1])
     axis off
     
-    subplot(4,2,7) %Linear Patlak fit
+    subplot(4,2,7) %Linear graphical Patlak fit
     plot(ROIData.PatlakLinear.PatlakX(1:end,iROI),ROIData.PatlakLinear.PatlakY(1:end,iROI),'b.')
     hold on
     plot(ROIData.PatlakLinear.PatlakX(opts.NIgnore+1:end,iROI),ROIData.PatlakLinear.PatlakYFit(opts.NIgnore+1:end,iROI),'b-')
