@@ -52,7 +52,7 @@ ROIData.meanPatlakMap_vP=nan(1,NROIs); %Patlak results, sampled from parameter m
 %% loop through ROIs and determine signals, enhancements, concentrations etc.
 for iROI=1:NROIs+1 %(includes AIF)
     
-    if iROI==NROIs+1; DCEROIDir = opts.DCEVIFDir;
+    if iROI==NROIs+1; DCEROIDir = opts.DCEAIFDir;
     else DCEROIDir = opts.DCEROIDir; end
     
     if ~exist([DCEROIDir '/' maskNames{iROI} '.nii'],'file'); %skip ROIs where mask doesn't exist
@@ -80,6 +80,8 @@ for iROI=1:NROIs+1 %(includes AIF)
     %% Calculate ROI concentrations (includes AIF)
     ROIData.median_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.median_enhPct,ROIData.medianT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.medianFA_deg,opts.r1_permMperS,opts.r2s_permMperS);
     ROIData.median_conc_mM(:,end)=ROIData.median_conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
+    ROIData.mean_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.mean_enhPct,ROIData.meanT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.meanFA_deg,opts.r1_permMperS,opts.r2s_permMperS);
+    ROIData.mean_conc_mM(:,end)=ROIData.mean_conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
 end
 
 %% loop through ROIs (excluding AIF) and fit Patlak model

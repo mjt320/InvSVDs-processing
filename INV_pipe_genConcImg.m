@@ -24,7 +24,7 @@ FAMap_deg=kMap * acqPars.FA_deg; %scale nominal flip angle using k map
 
 %%calculate enhancement and concentrations
 enhancement2DPct=DCEFunc_Sig2Enh(SI2D,1:opts.DCENFramesBase);
-conc2DmM=DCEFunc_Enh2Conc_SPGR(enhancement2DPct,T1Map_s(:).',acqPars.TR_s,acqPars.TE_s,FAMap_deg(:).',opts.r1_permMperS,opts.r2s_permMperS);
+conc2DmM=DCEFunc_Enh2Conc_SPGR(enhancement2DPct,T1Map_s(:).',acqPars.TR_s,acqPars.TE_s,FAMap_deg(:).',opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode);
 
 %%convert back from 2D to 4D images and write
 enhancement4DPct=DCEFunc_reshape(enhancement2DPct,[size(SI4D,1) size(SI4D,2) size(SI4D,3)]);
@@ -35,7 +35,7 @@ sSI4DHdr=spm_vol([opts.DCENIIDir '/srDCE.nii']);
 [sSI4D,temp]=spm_read_vols(sSI4DHdr);
 sSI2D=DCEFunc_reshape(sSI4D);
 sEnhancement2DPct=DCEFunc_Sig2Enh(sSI2D,1:opts.DCENFramesBase);
-sConc2DmM=DCEFunc_Enh2Conc_SPGR(sEnhancement2DPct,T1Map_s(:).',acqPars.TR_s,acqPars.TE_s,FAMap_deg(:).',opts.r1_permMperS,opts.r2s_permMperS); %use unsmoothed T1 and k maps
+sConc2DmM=DCEFunc_Enh2Conc_SPGR(sEnhancement2DPct,T1Map_s(:).',acqPars.TR_s,acqPars.TE_s,FAMap_deg(:).',opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode); %use unsmoothed T1 and k maps
 sEnhancement4DPct=DCEFunc_reshape(sEnhancement2DPct,[size(SI4D,1) size(SI4D,2) size(SI4D,3)]);
 sConc4DmM=DCEFunc_reshape(sConc2DmM,[size(SI4D,1) size(SI4D,2) size(SI4D,3)]);
 
