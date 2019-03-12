@@ -9,8 +9,6 @@ if opts.overwrite==0 && exist([opts.DCENIIDir '/rDCE.nii'],'file'); return; end
 %delete existing output files
 delete([opts.DCENIIDir '/bet*']); delete([opts.DCENIIDir '/rDCE*']); delete('DCE3D*'); delete([opts.DCENIIDir '/meanPre.nii']); delete([opts.DCENIIDir '/*.txt']);
 
-load([opts.DCENIIDir '/acqPars']);
-
 betRefFile=[opts.DCENIIDir '/betDCE3D0000']; %filename for bet-ed image
 refFile=[opts.DCENIIDir '/DCE3D0000'];
 

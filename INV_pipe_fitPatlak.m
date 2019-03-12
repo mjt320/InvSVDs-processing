@@ -18,7 +18,7 @@ sConc2DmM=DCEFunc_reshape(sConc4DmM); %convert 4D to 2D array of time series
 dims=[size(conc4DmM,1) size(conc4DmM,2) size(conc4DmM,3)];
 
 %% measure AIF from concentration image
-AIFMaskData=measure4D(conc4DmM,[opts.DCEROIDir '/' opts.AIFName '.nii']);
+AIFMaskData=measure4D(conc4DmM,[opts.DCEVIFDir '/' opts.AIFName '.nii']);
 Cp_AIF_mM=AIFMaskData.mean/(1-opts.Hct); %convert from blood concentration to Plasma concentration
 save([opts.DCENIIDir '/Cp_AIF_mM'],'Cp_AIF_mM'); %save AIF
 
