@@ -96,7 +96,7 @@ for iROI=1:NROIs %(excludes AIF)
     
     %% Plot data and results (using MEDIANS at the moment)
     figure(iROI)
-    set(gcf,'Units','centimeters','Position',[50,0,30,30],'PaperPositionMode','auto','DefaultTextInterpreter', 'none')
+    set(gcf,'Units','centimeters','Position',[0,0,30,30],'PaperPositionMode','auto','DefaultTextInterpreter', 'none')
     
     subplot(4,2,1) %signal intensity
     plot(ROIData.t_S,ROIData.medianSI(:,iROI),'b.:')
