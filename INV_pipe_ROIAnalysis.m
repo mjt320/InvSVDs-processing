@@ -170,7 +170,10 @@ for iROI=1:NROIs %(excludes AIF)
     xlabel('X (s)'); ylabel('Y');
     
     %save figure
-    saveas(iROI,[opts.DCEROIProcDir '/ROI_results_' maskNames{iROI} '.jpg']);
+    if isfield(opts,'visitNo'); subject_visitNo_str=[opts.subjectCode '_' num2str(opts.visitNo)]; else subject_visitNo_str=[opts.subjectCode]; end
+    saveas(iROI,[opts.DCEROIProcDir '/ROI_results_' maskNames{iROI} '_' subject_visitNo_str '.jpg']);
+    saveas(iROI,[opts.DCEROIProcDir '/ROI_results_' maskNames{iROI} '_' subject_visitNo_str '.fig']);
+    
 end
 
 %% Save data

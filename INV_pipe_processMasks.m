@@ -1,7 +1,7 @@
 function INV_pipe_processMasks(opts)
 %transform and process masks
 
-if opts.overwrite==0 && ~isempty(dir([opts.DCEROIDir '/r' opts.ROINames{end} '*.*'])); return; end %return is overwrite mode is off and last ROI file exists
+if opts.overwrite==0 && exist([opts.DCEROIDir '/' opts.ROINames{end} '.nii'],'file'); return; end %return is overwrite mode is off and last ROI file exists
 
 NROIs=size(opts.ROINames,2); %number of ROIs
 
