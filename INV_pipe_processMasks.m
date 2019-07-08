@@ -1,7 +1,8 @@
 function INV_pipe_processMasks(opts)
 %transform and process masks
 
-if opts.overwrite==0 && exist([opts.DCEROIDir '/' opts.ROINames{end} '.nii'],'file'); return; end %return is overwrite mode is off and last ROI file exists
+%return if overwrite mode is off and last ROI file exists...
+if opts.overwrite==0 && exist([opts.DCEROIDir '/' opts.ROINames{end} '.nii'],'file'); return; end 
 
 NROIs=size(opts.ROINames,2); %number of ROIs
 
@@ -16,17 +17,11 @@ for iROI=1:NROIs
         continue;
     end
     
-    if ~isempty(strfind(opts.ROINames{iROI},'NAWM')) 
-        NEro = 0; thresh = 0.5;
-    else
-        NEro = 0; thresh = 0.5;
-    end
-    
     system(['flirt -in ' opts.maskDir{iROI} '/' opts.maskFile{iROI} ' -ref ' opts.DCENIIDir '/meanPre -out ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' -init ' opts.DCENIIDir '/struct2DCE.txt -applyxfm']); %transform mask
-    system(['fslmaths ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' -thr ' num2str(thresh) ' -bin ' opts.DCEROIDir '/_tr_' opts.ROINames{iROI}]); %threshold mask
-    system(['fslmaths ' opts.DCEROIDir '/_tr_' opts.ROINames{iROI} ' -kernel boxv ' num2str(NEro) ' -ero ' opts.DCEROIDir '/_etr_' opts.ROINames{iROI}]); %erode mask
-    copyfile([opts.DCEROIDir '/_etr_' opts.ROINames{iROI} '.nii.gz'],[opts.DCEROIDir '/' opts.ROINames{iROI} '.nii.gz'])
+    system(['fslmaths ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' -thr ' num2str(opts.maskTheshold (iROI)) ' -bin ' opts.DCEROIDir '/_tr_' opts.ROINames{iROI}]); %threshold mask
+    system(['fslmaths ' opts.DCEROIDir '/_tr_' opts.ROINames{iROI} ' -kernel boxv ' num2str(opts.maskNErode(iROI)) ' -ero ' opts.DCEROIDir '/_etr_' opts.ROINames{iROI}]); %erode mask    
     fslchfiletype_all([opts.DCEROIDir '/*' opts.ROINames{iROI} '*.*'],'NIFTI');
+    copyfile([opts.DCEROIDir '/_etr_' opts.ROINames{iROI} '.nii'],[opts.DCEROIDir '/' opts.ROINames{iROI} '.nii'])
 end
 
 end

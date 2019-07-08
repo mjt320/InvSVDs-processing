@@ -4,6 +4,8 @@ close all;
 
 if opts.overwrite==0 && exist([opts.DCEROIProcDir '/ROIData.mat'],'file'); return; end
 
+if ~isfield(opts,'PatlakFastRegMode'); opts.PatlakFastRegMode='linear'; end %default to linear regression
+
 %% make output directory and delete existing output files
 mkdir(opts.DCEROIProcDir); delete([opts.DCEROIProcDir '/*.*']);
 
@@ -49,6 +51,8 @@ ROIData.medianPatlakMap_vP=nan(1,NROIs); %Patlak results, sampled from parameter
 ROIData.meanPatlakMap_PSperMin=nan(1,NROIs); %Patlak results, sampled from parameter maps
 ROIData.meanPatlakMap_vP=nan(1,NROIs); %Patlak results, sampled from parameter maps
 
+masks=cell(1,NROIs);
+
 %% loop through ROIs and determine signals, enhancements, concentrations etc.
 for iROI=1:NROIs+1 %(includes AIF)
     
@@ -58,18 +62,26 @@ for iROI=1:NROIs+1 %(includes AIF)
     if ~exist([DCEROIDir '/' maskNames{iROI} '.nii'],'file'); %skip ROIs where mask doesn't exist
         disp(['Warning! ROI not found: ' DCEROIDir '/' maskNames{iROI} '.nii']);
         continue;
+    else
+        [masks{iROI},temp] = spm_read_vols(spm_vol([DCEROIDir '/' maskNames{iROI} '.nii']));
     end
-
+    
+    if isempty(find(masks{iROI}==1)); %if there are no voxels in the mask, don't process
+        disp(['Warning! Mask empty: ' DCEROIDir '/' maskNames{iROI} '.nii']);
+        continue;
+    end
+    
+    
     %% Get ROI signals, FA and T1
-    temp=measure4D(SI4D,[DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.medianSI(:,iROI)=temp.median; ROIData.meanSI(:,iROI)=temp.mean;
-    temp=measure4D(T1Map_s,[DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.medianT1_s(1,iROI)=temp.median; ROIData.meanT1_s(1,iROI)=temp.mean;
-    temp=measure4D(FAMap_deg,[DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.medianFA_deg(1,iROI)=temp.median; ROIData.meanFA_deg(1,iROI)=temp.mean;
+    temp=measure4D(SI4D,masks{iROI}); ROIData.medianSI(:,iROI)=temp.median; ROIData.meanSI(:,iROI)=temp.mean;
+    temp=measure4D(T1Map_s,masks{iROI}); ROIData.medianT1_s(1,iROI)=temp.median; ROIData.meanT1_s(1,iROI)=temp.mean;
+    temp=measure4D(FAMap_deg,masks{iROI}); ROIData.medianFA_deg(1,iROI)=temp.median; ROIData.meanFA_deg(1,iROI)=temp.mean;
     
     %% get a second set of Patlak parameters from the Patlak parameter maps for comparison
     if isSampleMaps
-        if iROI<=NROIs 
-            temp=measure4D(Patlak_vP_map,[DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.medianPatlakMap_vP(1,iROI)=temp.median; ROIData.meanPatlakMap_vP(1,iROI)=temp.mean;
-            temp=measure4D(Patlak_PSperMin_map,[DCEROIDir '/' maskNames{iROI} '.nii']); ROIData.medianPatlakMap_PSperMin(1,iROI)=temp.median; ROIData.meanPatlakMap_PSperMin(1,iROI)=temp.mean;
+        if iROI<=NROIs
+            temp=measure4D(Patlak_vP_map,masks{iROI}); ROIData.medianPatlakMap_vP(1,iROI)=temp.median; ROIData.meanPatlakMap_vP(1,iROI)=temp.mean;
+            temp=measure4D(Patlak_PSperMin_map,masks{iROI}); ROIData.medianPatlakMap_PSperMin(1,iROI)=temp.median; ROIData.meanPatlakMap_PSperMin(1,iROI)=temp.mean;
         end
     end
     
@@ -78,9 +90,9 @@ for iROI=1:NROIs+1 %(includes AIF)
     ROIData.mean_enhPct=DCEFunc_Sig2Enh(ROIData.meanSI,1:opts.DCENFramesBase);
     
     %% Calculate ROI concentrations (includes AIF)
-    ROIData.median_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.median_enhPct,ROIData.medianT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.medianFA_deg,opts.r1_permMperS,opts.r2s_permMperS);
+    ROIData.median_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.median_enhPct,ROIData.medianT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.medianFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode);
     ROIData.median_conc_mM(:,end)=ROIData.median_conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
-    ROIData.mean_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.mean_enhPct,ROIData.meanT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.meanFA_deg,opts.r1_permMperS,opts.r2s_permMperS);
+    ROIData.mean_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.mean_enhPct,ROIData.meanT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.meanFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode);
     ROIData.mean_conc_mM(:,end)=ROIData.mean_conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
 end
 
@@ -88,11 +100,13 @@ end
 for iROI=1:NROIs %(excludes AIF)
     if ~exist([opts.DCEROIDir '/' maskNames{iROI} '.nii'],'file'); continue; end  %skip ROIs where mask doesn't exist
     
+    if isempty(find(masks{iROI}==1)); continue; end %if there are no voxels in the mask, don't process
+    
     %% Calculate ROI PK parameters (excludes AIF)
-    [ROIData.medianPatlak, ROIData.medianConcFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.median_conc_mM(:,1:end-1),ROIData.median_conc_mM(:,end),'PatlakFast',struct('NIgnore',opts.NIgnore));
-    [ROIData.meanPatlak, ROIData.meanConcFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakFast',struct('NIgnore',opts.NIgnore));
-    [ROIData.medianPatlakLinear, ROIData.medianConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.median_conc_mM(:,1:end-1),ROIData.median_conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore));
-    [ROIData.meanPatlakLinear, ROIData.meanConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore));
+    [ROIData.medianPatlak, ROIData.medianConcFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.median_conc_mM(:,1:end-1),ROIData.median_conc_mM(:,end),'PatlakFast',struct('NIgnore',opts.NIgnore,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
+    [ROIData.meanPatlak, ROIData.meanConcFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakFast',struct('NIgnore',opts.NIgnore,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
+    [ROIData.medianPatlakLinear, ROIData.medianConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.median_conc_mM(:,1:end-1),ROIData.median_conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
+    [ROIData.meanPatlakLinear, ROIData.meanConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
     
     %% Plot data and results (using MEDIANS at the moment)
     figure(iROI)
@@ -154,6 +168,7 @@ for iROI=1:NROIs %(excludes AIF)
         ['T1 (s): ' num2str(ROIData.medianT1_s(1,iROI),'%.2f')];...
         ['FA (VIF, deg): ' num2str(ROIData.medianFA_deg(1,end),'%.1f')];...
         ['T1 (VIF, s): ' num2str(ROIData.medianT1_s(1,end),'%.2f')];...
+        ['Hct: ' num2str(opts.Hct)];...
         [''];...
         ['PS (10^{-4} per min, from map): ' num2str(1e4*ROIData.medianPatlakMap_PSperMin(1,iROI),'%.5f')];...
         ['vP (from map): ' num2str(ROIData.medianPatlakMap_vP(1,iROI),'%.5f')];...
