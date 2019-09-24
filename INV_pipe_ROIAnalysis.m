@@ -4,7 +4,7 @@ close all;
 
 if opts.overwrite==0 && exist([opts.DCEROIProcDir '/ROIData.mat'],'file'); return; end
 
-if ~isfield(opts,'PatlakFastRegMode'); opts.PatlakFastRegMode='linear'; end %default to linear regression
+if ~isfield(opts,'ROIPatlakFastRegMode'); opts.ROIPatlakFastRegMode='linear'; end %default to linear regression
 
 %% make output directory and delete existing output files
 mkdir(opts.DCEROIProcDir); delete([opts.DCEROIProcDir '/*.*']);

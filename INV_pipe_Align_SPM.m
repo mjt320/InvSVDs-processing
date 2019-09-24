@@ -6,6 +6,8 @@ function INV_pipe_Align_SPM(opts)
 
 if opts.overwrite==0 && exist([opts.DCENIIDir '/rDCE.nii'],'file'); return; end
 
+if ~isfield(opts,'realignMode'); opts.realignMode=0; end %use default realign mode
+
 %delete existing output files
 delete([opts.DCENIIDir '/bet*']); delete([opts.DCENIIDir '/rDCE*']); delete('DCE3D*'); delete([opts.DCENIIDir '/meanPre.nii']); delete([opts.DCENIIDir '/*.txt']);
 
@@ -20,8 +22,20 @@ fslchfiletype_all([opts.DCENIIDir '/*DCE3D*.*'],'NIFTI');
 imgNames=sort(getMultipleFilePaths([opts.DCENIIDir '/DCE3D*.nii']));
 
 %use SPM to realign volumes
-spm_realign(char(imgNames),struct('quality',1,'fwhm',2,'sep',2,'rtm',0,'PW',[betRefFile '_mask.nii'],'interp',3));
-spm_reslice(char(imgNames),struct('mask',1,'mean',0,'interp',4,'which',2,'wrap',[0 0 0],'prefix','r'));
+switch opts.realignMode
+    case 0 %realign using bet mask (default)
+        spm_realign(char(imgNames),struct('quality',1,'fwhm',0,'sep',2,'rtm',0,'PW',[betRefFile '_mask.nii'],'interp',3));
+        spm_reslice(char(imgNames),struct('mask',1,'mean',0,'interp',4,'which',2,'wrap',[0 0 0],'prefix','r'));
+    case 1 %realign using two pass approach
+        spm_realign(char(imgNames),struct('quality',1,'fwhm',2,'sep',2,'rtm',1,'PW',[betRefFile '_mask.nii'],'interp',3));
+        spm_reslice(char(imgNames),struct('mask',1,'mean',0,'interp',4,'which',2,'wrap',[0 0 0],'prefix','r'));
+    case 2 %realign without and with bet mask
+        spm_realign(char(imgNames),struct('quality',1,'fwhm',2,'sep',2,'rtm',0,'interp',3));
+        spm_realign(char(imgNames),struct('quality',1,'fwhm',2,'sep',2,'rtm',0,'PW',[betRefFile '_mask.nii'],'interp',3));
+        spm_reslice(char(imgNames),struct('mask',1,'mean',0,'interp',4,'which',2,'wrap',[0 0 0],'prefix','r'));
+    otherwise
+        error('Realign mode not recognised.');
+end
 
 spm_file_merge(sort(getMultipleFilePaths([opts.DCENIIDir '/rDCE3D*.nii'])),[opts.DCENIIDir '/rDCE.nii'],0); %merge into 4D file
 

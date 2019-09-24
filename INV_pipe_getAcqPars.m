@@ -11,7 +11,14 @@ dcmhdr=dicominfo([opts.DCEDicomDir '/' dicoms(1).name]);
 acqPars.TR_s=dcmhdr.RepetitionTime / 1000;
 acqPars.TE_s=dcmhdr.EchoTime / 1000;
 acqPars.FA_deg=dcmhdr.FlipAngle;
+if isfield(dcmhdr,'Private_0051_100a')
 acqPars.tRes_s=str2num(dcmhdr.Private_0051_100a(4:end));
+else
+    disp('**********************************************************');
+    disp('WARNING: Private_0051_100a FIELD NOT FOUND ASSUMING 39.62S');
+    disp('**********************************************************');
+    acqPars.tRes_s=39.62;
+end
 
 %% calculate number of frames from 4D NII
 acqPars.DCENFrames=size(spm_vol([opts.DCENIIDir '/DCE.nii']),1);

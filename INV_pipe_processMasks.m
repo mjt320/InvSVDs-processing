@@ -18,9 +18,9 @@ for iROI=1:NROIs
     end
     
     system(['flirt -in ' opts.maskDir{iROI} '/' opts.maskFile{iROI} ' -ref ' opts.DCENIIDir '/meanPre -out ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' -init ' opts.DCENIIDir '/struct2DCE.txt -applyxfm']); %transform mask
-    system(['fslmaths ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' -thr ' num2str(opts.maskTheshold (iROI)) ' -bin ' opts.DCEROIDir '/_tr_' opts.ROINames{iROI}]); %threshold mask
-    system(['fslmaths ' opts.DCEROIDir '/_tr_' opts.ROINames{iROI} ' -kernel boxv ' num2str(opts.maskNErode(iROI)) ' -ero ' opts.DCEROIDir '/_etr_' opts.ROINames{iROI}]); %erode mask    
-    fslchfiletype_all([opts.DCEROIDir '/*' opts.ROINames{iROI} '*.*'],'NIFTI');
+    system(['fslmaths ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' -thr ' num2str(opts.maskTheshold (iROI)) ' -bin ' opts.DCEROIDir '/_tr_' opts.ROINames{iROI} ' -odt char']); %threshold mask
+    system(['fslmaths ' opts.DCEROIDir '/_tr_' opts.ROINames{iROI} ' -kernel boxv ' num2str(opts.maskNErode(iROI)) ' -ero ' opts.DCEROIDir '/_etr_' opts.ROINames{iROI}]); %erode mask        
+    fslchfiletype_all([opts.DCEROIDir '/*' opts.ROINames{iROI} '*.*'],'NIFTI');    
     copyfile([opts.DCEROIDir '/_etr_' opts.ROINames{iROI} '.nii'],[opts.DCEROIDir '/' opts.ROINames{iROI} '.nii'])
 end
 
