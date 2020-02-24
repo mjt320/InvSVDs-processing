@@ -2,10 +2,10 @@ function INV_pipe_transformDCEToStruct(opts)
 %transform parameter maps to structural space using previously determined
 %transform
 
-imagesToTransform={'PatlakFast_PSperMin.nii' 'PatlakFast_vP.nii' 'sPatlakFast_PSperMin.nii' 'sPatlakFast_vP.nii'};
+imagesToTransform={'PatlakFast_PSperMin.nii' 'PatlakFast_vP.nii' 'sPatlakFast_PSperMin.nii' 'sPatlakFast_vP.nii' 'bet_PatlakFast_PSperMin.nii' 'bet_PatlakFast_vP.nii' 'bet_sPatlakFast_PSperMin.nii' 'bet_sPatlakFast_vP.nii'};
 NImages=size(imagesToTransform,2);
 
-if opts.overwrite==0 && exist([opts.DCENIIDir '/DCE2Struct.txt'],'file'); return; end
+if opts.overwrite==0 && exist([opts.DCENIIDir '/r' imagesToTransform{end}],'file'); return; end
 
 %% delete existing output files
 delete([opts.DCENIIDir '/DCE2Struct.txt']);

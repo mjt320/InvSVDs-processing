@@ -20,7 +20,7 @@ for iMap=1:NMaps
 end
 
 for iROI=1:NROIs
-    if ~exist([opts.QROIDir '/' opts.ROINames{iROI} '.nii'],'file'); %skip ROIs where mask doesn't exist
+    if ~exist([opts.QROIDir '/' opts.ROINames{iROI} '.nii'],'file') %skip ROIs where mask doesn't exist
         disp(['Warning! ROI not found: ' opts.QROIDir '/' opts.ROINames{iROI} '.nii']);
         continue;
     end
@@ -38,7 +38,7 @@ for iMap=1:NMaps
     %% loop through ROIs and determine values
     for iROI=1:NROIs
         
-        if ~exist([opts.QROIDir '/' opts.ROINames{iROI} '.nii'],'file'); %skip ROIs where mask doesn't exist
+        if ~exist([opts.QROIDir '/' opts.ROINames{iROI} '.nii'],'file') %skip ROIs where mask doesn't exist
             continue;
         end
         

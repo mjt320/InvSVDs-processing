@@ -5,6 +5,7 @@ if opts.overwrite==0 && exist([opts.DCENIIDir '/PatlakFast_PSperMin.nii'],'file'
 
 %% delete existing output files
 delete([opts.DCENIIDir '/*Patlak*.*']);
+delete([opts.DCENIIDir '/opts.mat']);
 
 %% read concentration map
 Conc4DmMHdr=spm_vol([opts.DCENIIDir '/ConcmM.nii']);
@@ -41,5 +42,7 @@ for iFile=1:size(filesToMask,2)
     system(['fslmaths ' opts.DCENIIDir '/' filesToMask{iFile} ' -mul ' opts.DCENIIDir '/betDCE3D0000_mask ' opts.DCENIIDir '/bet_' filesToMask{iFile}]);
     system(['fslchfiletype NIFTI ' opts.DCENIIDir '/bet_' filesToMask{iFile}]);
 end
+
+save([opts.DCENIIDir '/opts'],'opts');
 
 end

@@ -6,6 +6,8 @@ if opts.overwrite==0 && exist([opts.DCEROIProcDir '/ROIData.mat'],'file'); retur
 
 if ~isfield(opts,'ROIPatlakFastRegMode'); opts.ROIPatlakFastRegMode='linear'; end %default to linear regression
 
+if ~isfield(opts,'DCEFramesBaseIdx'); opts.DCEFramesBaseIdx=1:opts.DCENFramesBase; end %if indices for baseline are not specified, us all points from 1 to opts.DCENFramesBase
+
 %% make output directory and delete existing output files
 mkdir(opts.DCEROIProcDir); delete([opts.DCEROIProcDir '/*.*']);
 
@@ -86,8 +88,8 @@ for iROI=1:NROIs+1 %(includes AIF)
     end
     
     %% Calculate ROI enhancements (includes AIF)
-    ROIData.median_enhPct=DCEFunc_Sig2Enh(ROIData.medianSI,1:opts.DCENFramesBase);
-    ROIData.mean_enhPct=DCEFunc_Sig2Enh(ROIData.meanSI,1:opts.DCENFramesBase);
+    ROIData.median_enhPct=DCEFunc_Sig2Enh(ROIData.medianSI,opts.DCEFramesBaseIdx);
+    ROIData.mean_enhPct=DCEFunc_Sig2Enh(ROIData.meanSI,opts.DCEFramesBaseIdx);
     
     %% Calculate ROI concentrations (includes AIF)
     ROIData.median_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.median_enhPct,ROIData.medianT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.medianFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode);
@@ -95,6 +97,9 @@ for iROI=1:NROIs+1 %(includes AIF)
     ROIData.mean_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.mean_enhPct,ROIData.meanT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.meanFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode);
     ROIData.mean_conc_mM(:,end)=ROIData.mean_conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
 end
+
+%% For Patlak plots increase NIgnore as necessary to exclude datapoints where there is little contrast in the blood (prevents noise blowing up)
+NIgnorePatlakPlot = max([opts.NIgnore sum(ROIData.mean_conc_mM(:,end) < 0.2)]);
 
 %% loop through ROIs (excluding AIF) and fit Patlak model
 for iROI=1:NROIs %(excludes AIF)
@@ -105,93 +110,98 @@ for iROI=1:NROIs %(excludes AIF)
     %% Calculate ROI PK parameters (excludes AIF)
     [ROIData.medianPatlak, ROIData.medianConcFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.median_conc_mM(:,1:end-1),ROIData.median_conc_mM(:,end),'PatlakFast',struct('NIgnore',opts.NIgnore,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
     [ROIData.meanPatlak, ROIData.meanConcFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakFast',struct('NIgnore',opts.NIgnore,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
-    [ROIData.medianPatlakLinear, ROIData.medianConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.median_conc_mM(:,1:end-1),ROIData.median_conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
-    [ROIData.meanPatlakLinear, ROIData.meanConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakLinear',struct('NIgnore',opts.NIgnore,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
+    [ROIData.medianPatlakLinear, ROIData.medianConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.median_conc_mM(:,1:end-1),ROIData.median_conc_mM(:,end),'PatlakLinear',struct('NIgnore',NIgnorePatlakPlot,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
+    [ROIData.meanPatlakLinear, ROIData.meanConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakLinear',struct('NIgnore',NIgnorePatlakPlot,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
     
-    %% Plot data and results (using MEDIANS at the moment)
-    figure(iROI)
-    set(gcf,'Units','centimeters','Position',[0,0,30,30],'PaperPositionMode','auto','DefaultTextInterpreter', 'none')
-    
-    subplot(4,2,1) %signal intensity
-    plot(ROIData.t_S,ROIData.medianSI(:,iROI),'b.:')
-    xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.medianSI(:,iROI))-10 max(ROIData.medianSI(:,iROI))+10]);
-    title([maskNames{iROI} ':  SI'])
-    xlabel('time (s)');
-    
-    subplot(4,2,2) %enhancement
-    plot(ROIData.t_S,ROIData.median_enhPct(:,iROI),'b.:')
-    xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.median_enhPct(:,iROI))-1 max(ROIData.median_enhPct(:,iROI))+1]);
-    title([maskNames{iROI} ': enhancement (%)'])
-    xlabel('time (s)');
-    line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
-    
-    subplot(4,2,3) %concentration and Patlak fit
-    plot(ROIData.t_S,ROIData.median_conc_mM(:,iROI),'b.:')
-    hold on
-    plot(ROIData.t_S,ROIData.medianConcFit_mM(:,iROI),'k-') %plot fitted conc
-    xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.median_conc_mM(:,iROI))-2e-3 max(ROIData.median_conc_mM(:,iROI))+2e-3]);
-    title([maskNames{iROI} ': [GBCA] with Patlak model fit (mM)'])
-    xlabel('time (s)');
-    line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
-    
-    subplot(4,2,4) %VIF signal intensity
-    plot(ROIData.t_S,ROIData.medianSI(:,end),'b.:')
-    xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.medianSI(:,end))-100 max(ROIData.medianSI(:,end))+200]);
-    title([maskNames{end} ': SI'])
-    xlabel('time (s)');
-    
-    subplot(4,2,5) %VIF enhancement
-    plot(ROIData.t_S,ROIData.median_enhPct(:,end),'b.:')
-    xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.median_enhPct(:,end))-20 max(ROIData.median_enhPct(:,end))+50]);
-    title([maskNames{end} ': enhancement (%)'])
-    xlabel('time (s)');
-    line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
-    
-    subplot(4,2,6) %VIF concentration
-    plot(ROIData.t_S,ROIData.median_conc_mM(:,end),'b.:') %as AIF not fitted, just connect values with line
-    hold on
-    xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.median_conc_mM(:,end))-0.1 max(ROIData.median_conc_mM(:,end))+0.2]);
-    title([maskNames{end} ': [plasma GBCA] (mM)'])
-    xlabel('time (s)');
-    line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
-    
-    subplot(4,2,8) %Patlak results
-    title({...
-        [strrep(opts.subjectCode,'_','-')];...
-        ['ROI: ' maskNames{iROI}];...
-        ['Patlak / Patlak plot results:'];...
-        ['PS (10^{-4} per min): ' num2str(1e4*ROIData.medianPatlak.PS_perMin(1,iROI),'%.5f')...
-        ' / ' num2str(1e4*ROIData.medianPatlakLinear.PS_perMin(1,iROI),'%.5f')];...
-        ['vP: ' num2str(ROIData.medianPatlak.vP(1,iROI),'%.5f')...
-        ' / ' num2str(ROIData.medianPatlakLinear.vP(1,iROI),'%.5f')];...
-        ['FA (deg): ' num2str(ROIData.medianFA_deg(1,iROI),'%.1f')];...
-        ['T1 (s): ' num2str(ROIData.medianT1_s(1,iROI),'%.2f')];...
-        ['FA (VIF, deg): ' num2str(ROIData.medianFA_deg(1,end),'%.1f')];...
-        ['T1 (VIF, s): ' num2str(ROIData.medianT1_s(1,end),'%.2f')];...
-        ['Hct: ' num2str(opts.Hct)];...
-        [''];...
-        ['PS (10^{-4} per min, from map): ' num2str(1e4*ROIData.medianPatlakMap_PSperMin(1,iROI),'%.5f')];...
-        ['vP (from map): ' num2str(ROIData.medianPatlakMap_vP(1,iROI),'%.5f')];...
-        },'VerticalAlignment','top','HorizontalAlignment','left','Position',[0 1])
-    axis off
-    
-    subplot(4,2,7) %Linear graphical Patlak fit
-    plot(ROIData.medianPatlakLinear.PatlakX(1:end,iROI),ROIData.medianPatlakLinear.PatlakY(1:end,iROI),'b.')
-    hold on
-    plot(ROIData.medianPatlakLinear.PatlakX(opts.NIgnore+1:end,iROI),ROIData.medianPatlakLinear.PatlakYFit(opts.NIgnore+1:end,iROI),'b-')
-    xlim([min(ROIData.medianPatlakLinear.PatlakX(opts.NIgnore+1:end,iROI)) max(ROIData.medianPatlakLinear.PatlakX(opts.NIgnore+1:end,iROI))]); ylim([min(ROIData.medianPatlakLinear.PatlakY(opts.NIgnore+1:end,iROI)) max(ROIData.medianPatlakLinear.PatlakY(opts.NIgnore+1:end,iROI))]);
-    ylim([0 max(ROIData.medianPatlakLinear.PatlakY(opts.NIgnore+1:end,iROI))]);
-    title([maskNames{iROI} ': Patlak plot fit'])
-    xlabel('X (s)'); ylabel('Y');
-    
-    %save figure
-    if isfield(opts,'visitNo'); subject_visitNo_str=[opts.subjectCode '_' num2str(opts.visitNo)]; else subject_visitNo_str=[opts.subjectCode]; end
-    saveas(iROI,[opts.DCEROIProcDir '/ROI_results_' maskNames{iROI} '_' subject_visitNo_str '.jpg']);
-    saveas(iROI,[opts.DCEROIProcDir '/ROI_results_' maskNames{iROI} '_' subject_visitNo_str '.fig']);
-    
+    %% Plot data and results (using MEANS and MEDIANS)
+    meanMedian={'mean' 'median'};
+    for iPlot=1:2 %loop through this twice to plot mean and median results
+        figure(1)
+        set(gcf,'Units','centimeters','Position',[0,0,30,30],'PaperPositionMode','auto','DefaultTextInterpreter', 'none')
+        
+        subplot(4,2,1) %signal intensity
+        plot(ROIData.t_S,ROIData.([meanMedian{iPlot} 'SI'])(:,iROI),'b.:')
+        xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} 'SI'])(:,iROI))-10 max(ROIData.([meanMedian{iPlot} 'SI'])(:,iROI))+10]);
+        title([maskNames{iROI} ':  SI'])
+        xlabel('time (s)');
+        
+        subplot(4,2,2) %enhancement
+        plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI),'b.:')
+        xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI))-1 max(ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI))+1]);
+        title([maskNames{iROI} ': enhancement (%)'])
+        xlabel('time (s)');
+        line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
+        
+        subplot(4,2,3) %concentration and Patlak fit
+        plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI),'b.:')
+        hold on
+        plot(ROIData.t_S,ROIData.([meanMedian{iPlot} 'ConcFit_mM'])(:,iROI),'k-') %plot fitted conc
+        xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI))-2e-3 max(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI))+2e-3]);
+        title([maskNames{iROI} ': [GBCA] with Patlak model fit (mM)'])
+        xlabel('time (s)');
+        line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
+        
+        subplot(4,2,4) %VIF signal intensity
+        plot(ROIData.t_S,ROIData.([meanMedian{iPlot} 'SI'])(:,end),'b.:')
+        xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} 'SI'])(:,end))-100 max(ROIData.([meanMedian{iPlot} 'SI'])(:,end))+200]);
+        title([maskNames{end} ': SI'])
+        xlabel('time (s)');
+        
+        subplot(4,2,5) %VIF enhancement
+        plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_enhPct'])(:,end),'b.:')
+        xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_enhPct'])(:,end))-20 max(ROIData.([meanMedian{iPlot} '_enhPct'])(:,end))+50]);
+        title([maskNames{end} ': enhancement (%)'])
+        xlabel('time (s)');
+        line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
+        
+        subplot(4,2,6) %VIF concentration
+        plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_conc_mM'])(:,end),'b.:') %as AIF not fitted, just connect values with line
+        hold on
+        xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,end))-0.1 max(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,end))+0.2]);
+        title([maskNames{end} ': [plasma GBCA] (mM)'])
+        xlabel('time (s)');
+        line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
+        
+        subplot(4,2,8) %Patlak results
+        title({...
+            [strrep(opts.subjectCode,'_','-') ' (' meanMedian{iPlot} ')'];...
+            ['ROI: ' maskNames{iROI}];...
+            ['Patlak / Patlak plot results:'];...
+            ['PS (10^{-4} per min): ' num2str(1e4*ROIData.([meanMedian{iPlot} 'Patlak']).PS_perMin(1,iROI),'%.5f')...
+            ' / ' num2str(1e4*ROIData.([meanMedian{iPlot} 'PatlakLinear']).PS_perMin(1,iROI),'%.5f')];...
+            ['vP: ' num2str(ROIData.([meanMedian{iPlot} 'Patlak']).vP(1,iROI),'%.5f')...
+            ' / ' num2str(ROIData.([meanMedian{iPlot} 'PatlakLinear']).vP(1,iROI),'%.5f')];...
+            ['FA (deg): ' num2str(ROIData.([meanMedian{iPlot} 'FA_deg'])(1,iROI),'%.1f')];...
+            ['T1 (s): ' num2str(ROIData.([meanMedian{iPlot} 'T1_s'])(1,iROI),'%.2f')];...
+            ['FA (VIF, deg): ' num2str(ROIData.([meanMedian{iPlot} 'FA_deg'])(1,end),'%.1f')];...
+            ['T1 (VIF, s): ' num2str(ROIData.([meanMedian{iPlot} 'T1_s'])(1,end),'%.2f')];...
+            ['Hct: ' num2str(opts.Hct)];...
+            [''];...
+            ['PS (10^{-4} per min, from map): ' num2str(1e4*ROIData.([meanMedian{iPlot} 'PatlakMap_PSperMin'])(1,iROI),'%.5f')];...
+            ['vP (from map): ' num2str(ROIData.([meanMedian{iPlot} 'PatlakMap_vP'])(1,iROI),'%.5f')];...
+            },'VerticalAlignment','top','HorizontalAlignment','left','Position',[0 1])
+        axis off
+        
+        subplot(4,2,7) %Linear graphical Patlak fit
+        plot(ROIData.([meanMedian{iPlot} 'PatlakLinear']).PatlakX(NIgnorePatlakPlot+1:end,iROI),ROIData.([meanMedian{iPlot} 'PatlakLinear']).PatlakY(NIgnorePatlakPlot+1:end,iROI),'b.')
+        hold on
+        plot(ROIData.([meanMedian{iPlot} 'PatlakLinear']).PatlakX(NIgnorePatlakPlot+1:end,iROI),ROIData.([meanMedian{iPlot} 'PatlakLinear']).PatlakYFit(NIgnorePatlakPlot+1:end,iROI),'b-')
+        %xlim([min(ROIData.medianPatlakLinear.PatlakX(opts.NIgnore+1:end,iROI)) max(ROIData.medianPatlakLinear.PatlakX(opts.NIgnore+1:end,iROI))]); ylim([min(ROIData.medianPatlakLinear.PatlakY(opts.NIgnore+1:end,iROI)) max(ROIData.medianPatlakLinear.PatlakY(opts.NIgnore+1:end,iROI))]);
+        %ylim([0 max(ROIData.medianPatlakLinear.PatlakY(opts.NIgnore+1:end,iROI))]);
+        title([maskNames{iROI} ': Patlak plot fit'])
+        xlabel('X (s)'); ylabel('Y');
+        
+        %save figure
+        if isfield(opts,'visitNo'); subject_visitNo_str=[opts.subjectCode '_' num2str(opts.visitNo)]; else; subject_visitNo_str=[opts.subjectCode]; end
+        saveas(1,[opts.DCEROIProcDir '/ROI_results_' maskNames{iROI} '_' subject_visitNo_str '_' meanMedian{iPlot} '.jpg']);
+        saveas(1,[opts.DCEROIProcDir '/ROI_results_' maskNames{iROI} '_' subject_visitNo_str '_' meanMedian{iPlot} '.fig']);
+        
+        close(1);
+    end
 end
 
 %% Save data
 save([opts.DCEROIProcDir '/ROIData'],'ROIData');
+save([opts.DCEROIProcDir '/opts'],'opts');
 
 end
