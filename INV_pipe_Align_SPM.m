@@ -45,7 +45,7 @@ delete([opts.DCENIIDir '/rDCE3D*.nii']); %delete 3D files
 SI4DHdr=spm_vol([opts.DCENIIDir '/rDCE.nii']); %load co-reg data to calculate mean pre-contrast image
 [SI4D,temp]=spm_read_vols(SI4DHdr);
 
-meanPreContrast=squeeze(mean(SI4D(:,:,:,1:opts.DCENFramesBase),4)); %calculate average pre-contrast image
+meanPreContrast=squeeze(mean(SI4D(:,:,:,opts.DCEFramesBaseIdx),4)); %calculate average pre-contrast image
 SPMWrite4D(SI4DHdr,meanPreContrast,opts.DCENIIDir,'meanPre',SI4DHdr(1).dt)
 
 end
