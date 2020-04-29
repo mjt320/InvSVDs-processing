@@ -61,18 +61,17 @@ for iROI=1:NROIs+1 %(includes AIF)
     if iROI==NROIs+1; DCEROIDir = opts.DCEAIFDir;
     else DCEROIDir = opts.DCEROIDir; end
     
-    if ~exist([DCEROIDir '/' maskNames{iROI} '.nii'],'file'); %skip ROIs where mask doesn't exist
+    if ~exist([DCEROIDir '/' maskNames{iROI} '.nii'],'file') %skip ROIs where mask doesn't exist
         disp(['Warning! ROI not found: ' DCEROIDir '/' maskNames{iROI} '.nii']);
         continue;
     else
         [masks{iROI},temp] = spm_read_vols(spm_vol([DCEROIDir '/' maskNames{iROI} '.nii']));
     end
     
-    if isempty(find(masks{iROI}==1)); %if there are no voxels in the mask, don't process
+    if isempty(find(masks{iROI}==1)) %if there are no voxels in the mask, don't process
         disp(['Warning! Mask empty: ' DCEROIDir '/' maskNames{iROI} '.nii']);
         continue;
     end
-    
     
     %% Get ROI signals, FA and T1
     temp=measure4D(SI4D,masks{iROI}); ROIData.medianSI(:,iROI)=temp.median; ROIData.meanSI(:,iROI)=temp.mean;
@@ -87,16 +86,17 @@ for iROI=1:NROIs+1 %(includes AIF)
         end
     end
     
-    %% Calculate ROI enhancements (includes AIF)
-    ROIData.median_enhPct=DCEFunc_Sig2Enh(ROIData.medianSI,opts.DCEFramesBaseIdx);
-    ROIData.mean_enhPct=DCEFunc_Sig2Enh(ROIData.meanSI,opts.DCEFramesBaseIdx);
-    
-    %% Calculate ROI concentrations (includes AIF)
-    ROIData.median_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.median_enhPct,ROIData.medianT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.medianFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode);
-    ROIData.median_conc_mM(:,end)=ROIData.median_conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
-    ROIData.mean_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.mean_enhPct,ROIData.meanT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.meanFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode);
-    ROIData.mean_conc_mM(:,end)=ROIData.mean_conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
 end
+
+%% Calculate ROI enhancements (includes AIF)
+ROIData.median_enhPct=DCEFunc_Sig2Enh(ROIData.medianSI,opts.DCEFramesBaseIdx);
+ROIData.mean_enhPct=DCEFunc_Sig2Enh(ROIData.meanSI,opts.DCEFramesBaseIdx);
+
+%% Calculate ROI concentrations (includes AIF)
+ROIData.median_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.median_enhPct,ROIData.medianT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.medianFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode);
+ROIData.median_conc_mM(:,end)=ROIData.median_conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
+ROIData.mean_conc_mM=DCEFunc_Enh2Conc_SPGR(ROIData.mean_enhPct,ROIData.meanT1_s,acqPars.TR_s,acqPars.TE_s,ROIData.meanFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts.Enh2ConcMode);
+ROIData.mean_conc_mM(:,end)=ROIData.mean_conc_mM(:,end)/(1-opts.Hct); %convert AIF voxel concentration to plasma concentration
 
 %% For Patlak plots increase NIgnore as necessary to exclude datapoints where there is little contrast in the blood (prevents noise blowing up)
 NIgnorePatlakPlot = max([opts.NIgnore sum(ROIData.mean_conc_mM(:,end) < 0.2)]);
