@@ -107,6 +107,13 @@ NIgnorePatlakPlot = max([opts.NIgnore sum(ROIData.mean_conc_mM(:,end) < 0.2)]);
 [ROIData.medianPatlakLinear, ROIData.medianConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.median_conc_mM(:,1:end-1),ROIData.median_conc_mM(:,end),'PatlakLinear',struct('NIgnore',NIgnorePatlakPlot,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
 [ROIData.meanPatlakLinear, ROIData.meanConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakLinear',struct('NIgnore',NIgnorePatlakPlot,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
 
+%% Calculate alternative ROI PK parameters using SXL fit
+[SXLData.mean SXLData.mean_enhancementPct_fit]=DCEFunc_fitPatlak_waterEx...
+    (acqPars.tRes_s,ROIData.mean_enhPct(:,1:end-1),ROIData.mean_conc_mM(:,4),opts.Hct,ROIData.meanT1_s(:,1:end-1),ROIData.meanT1_s(4),...
+    acqPars.TR_s,acqPars.TE_s,ROIData.meanFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts);
+[SXLData.median SXLData.median_enhancementPct_fit]=DCEFunc_fitPatlak_waterEx...
+    (acqPars.tRes_s,ROIData.median_enhPct(:,1:end-1),ROIData.median_conc_mM(:,4),opts.Hct,ROIData.medianT1_s(:,1:end-1),ROIData.medianT1_s(4),...
+    acqPars.TR_s,acqPars.TE_s,ROIData.medianFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts);
 %% loop through ROIs (excluding AIF) and plot data and results (using MEANS and MEDIANS)
 for iROI=1:NROIs %(excludes AIF)
     if ~exist([opts.DCEROIDir '/' maskNames{iROI} '.nii'],'file'); continue; end  %skip ROIs where mask doesn't exist
@@ -124,7 +131,8 @@ for iROI=1:NROIs %(excludes AIF)
         xlabel('time (s)');
         
         subplot(4,2,2) %enhancement
-        plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI),'b.:')
+        plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI),'b.:'); hold on;
+        plot(ROIData.t_S,SXLData.([meanMedian{iPlot} '_enhancementPct_fit'])(:,iROI),'g');
         xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI))-1 max(ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI))+1]);
         title([maskNames{iROI} ': enhancement (%)'])
         xlabel('time (s)');
@@ -134,6 +142,8 @@ for iROI=1:NROIs %(excludes AIF)
         plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI),'b.:')
         hold on
         plot(ROIData.t_S,ROIData.([meanMedian{iPlot} 'ConcFit_mM'])(:,iROI),'k-') %plot fitted conc
+        hold on
+        plot(ROIData.t_S,SXLData.(meanMedian{iPlot}).Ct_SXL_mM(:,iROI),'g')
         xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI))-2e-3 max(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI))+2e-3]);
         title([maskNames{iROI} ': [GBCA] with Patlak model fit (mM)'])
         xlabel('time (s)');
@@ -170,6 +180,8 @@ for iROI=1:NROIs %(excludes AIF)
             ['vP: ' num2str(ROIData.([meanMedian{iPlot} 'Patlak']).vP(1,iROI),'%.5f')...
             ' / ' num2str(ROIData.([meanMedian{iPlot} 'PatlakLinear']).vP(1,iROI),'%.5f')];...
             ['FA (deg): ' num2str(ROIData.([meanMedian{iPlot} 'FA_deg'])(1,iROI),'%.1f')];...
+            ['PS (10^{-4} per min (SXL fit): ' num2str(1e4*SXLData.([meanMedian{iPlot}]).PS_perMin(1,iROI),'%.5f')];...
+            ['vP (SXL fit); ' num2str(SXLData.([meanMedian{iPlot}]).vP(1,iROI),'%.5f')];...
             ['T1 (s): ' num2str(ROIData.([meanMedian{iPlot} 'T1_s'])(1,iROI),'%.2f')];...
             ['FA (VIF, deg): ' num2str(ROIData.([meanMedian{iPlot} 'FA_deg'])(1,end),'%.1f')];...
             ['T1 (VIF, s): ' num2str(ROIData.([meanMedian{iPlot} 'T1_s'])(1,end),'%.2f')];...
@@ -201,5 +213,6 @@ end
 %% Save data
 save([opts.DCEROIProcDir '/ROIData'],'ROIData');
 save([opts.DCEROIProcDir '/opts'],'opts');
+save([opts.DCEROIProcDir '/SXLData'],'SXLData');
 
 end
