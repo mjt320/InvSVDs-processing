@@ -28,6 +28,8 @@ save([opts.DCENIIDir '/Cp_AIF_mM'],'Cp_AIF_mM'); %save AIF
 SPMWrite4D(Conc4DmMHdr,DCEFunc_reshape(CtModelFit2DFast_mM,dims),opts.DCENIIDir,'PatlakModelFastFit',16);
 SPMWrite4D(Conc4DmMHdr(1),DCEFunc_reshape(PKPFast.vP,dims),opts.DCENIIDir,'PatlakFast_vP',16);
 SPMWrite4D(Conc4DmMHdr(1),DCEFunc_reshape(PKPFast.PS_perMin,dims),opts.DCENIIDir,'PatlakFast_PSperMin',16);
+SPMWrite4D(Conc4DmMHdr(1),DCEFunc_reshape(PKPFast.vP/(1-opts.Hct),dims),opts.DCENIIDir,'PatlakFast_vB',16);
+SPMWrite4D(Conc4DmMHdr(1),DCEFunc_reshape((PKPFast.PS_perMin*(1-opts.Hct))./PKPFast.vP,dims),opts.DCENIIDir,'PatlakFast_k_perMin',16);
 
 %% fit Patlak model (fast linear - smoothed data)
 %note the un-smoothed VIF is used to avoid potentially large partial volume effect
@@ -35,9 +37,11 @@ SPMWrite4D(Conc4DmMHdr(1),DCEFunc_reshape(PKPFast.PS_perMin,dims),opts.DCENIIDir
 SPMWrite4D(sConc4DmMHdr,DCEFunc_reshape(sCtModelFit2DFast_mM,dims),opts.DCENIIDir,'sPatlakModelFastFit',16);
 SPMWrite4D(sConc4DmMHdr(1),DCEFunc_reshape(sPKPFast.vP,dims),opts.DCENIIDir,'sPatlakFast_vP',16);
 SPMWrite4D(sConc4DmMHdr(1),DCEFunc_reshape(sPKPFast.PS_perMin,dims),opts.DCENIIDir,'sPatlakFast_PSperMin',16);
+SPMWrite4D(sConc4DmMHdr(1),DCEFunc_reshape(sPKPFast.vP/(1-opts.Hct),dims),opts.DCENIIDir,'sPatlakFast_vB',16);
+SPMWrite4D(sConc4DmMHdr(1),DCEFunc_reshape((sPKPFast.PS_perMin*(1-opts.Hct))./sPKPFast.vP,dims),opts.DCENIIDir,'sPatlakFast_k_perMin',16);
 
 %% mask parameter maps (for display purposes)
-filesToMask={'PatlakFast_vP' 'PatlakFast_PSperMin' 'sPatlakFast_vP' 'sPatlakFast_PSperMin'};
+filesToMask={'PatlakFast_vP' 'PatlakFast_PSperMin' 'PatlakFast_vB' 'PatlakFast_k_perMin' 'sPatlakFast_vP' 'sPatlakFast_PSperMin' 'sPatlakFast_vB' 'sPatlakFast_k_perMin' };
 for iFile=1:size(filesToMask,2)
     system(['fslmaths ' opts.DCENIIDir '/' filesToMask{iFile} ' -mul ' opts.DCENIIDir '/betDCE3D0000_mask ' opts.DCENIIDir '/bet_' filesToMask{iFile}]);
     system(['fslchfiletype NIFTI ' opts.DCENIIDir '/bet_' filesToMask{iFile}]);

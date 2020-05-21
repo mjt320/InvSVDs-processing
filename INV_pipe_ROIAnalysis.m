@@ -22,6 +22,8 @@ isSampleMaps = (exist([opts.DCENIIDir '/PatlakFast_vP.nii'],'file')==2) && (exis
 if isSampleMaps
     Patlak_vP_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_vP.nii']));
     Patlak_PSperMin_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_PSperMin.nii']));
+    Patlak_vB_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_vB.nii']));
+    Patlak_k_perMin_map=spm_read_vols(spm_vol([opts.DCENIIDir '/PatlakFast_k_perMin.nii']));
 end
 
 %% derive parameters
@@ -50,8 +52,12 @@ ROIData.meanPatlak=[]; %Patlak results
 ROIData.meanPatlakLinear=[]; %linear graphical Patlak results
 ROIData.medianPatlakMap_PSperMin=nan(1,NROIs); %Patlak results, sampled from parameter maps
 ROIData.medianPatlakMap_vP=nan(1,NROIs); %Patlak results, sampled from parameter maps
+ROIData.medianPatlakMap_vB=nan(1,NROIs); %Patlak results, sampled from parameter maps
+ROIData.medianPatlakMap_k_perMin=nan(1,NROIs); %Patlak results, sampled from parameter maps
 ROIData.meanPatlakMap_PSperMin=nan(1,NROIs); %Patlak results, sampled from parameter maps
 ROIData.meanPatlakMap_vP=nan(1,NROIs); %Patlak results, sampled from parameter maps
+ROIData.meanPatlakMap_vB=nan(1,NROIs); %Patlak results, sampled from parameter maps
+ROIData.meanPatlakMap_k_perMin=nan(1,NROIs); %Patlak results, sampled from parameter maps
 
 masks=cell(1,NROIs);
 
@@ -81,8 +87,21 @@ for iROI=1:NROIs+1 %(includes AIF)
     %% get a second set of Patlak parameters from the Patlak parameter maps for comparison
     if isSampleMaps
         if iROI<=NROIs
-            temp=measure4D(Patlak_vP_map,masks{iROI}); ROIData.medianPatlakMap_vP(1,iROI)=temp.median; ROIData.meanPatlakMap_vP(1,iROI)=temp.mean;
-            temp=measure4D(Patlak_PSperMin_map,masks{iROI}); ROIData.medianPatlakMap_PSperMin(1,iROI)=temp.median; ROIData.meanPatlakMap_PSperMin(1,iROI)=temp.mean;
+            temp=measure4D(Patlak_vP_map,masks{iROI});
+            ROIData.medianPatlakMap_vP(1,iROI)=temp.median;
+            ROIData.meanPatlakMap_vP(1,iROI)=temp.mean;
+            
+            temp=measure4D(Patlak_PSperMin_map,masks{iROI});
+            ROIData.medianPatlakMap_PSperMin(1,iROI)=temp.median;
+            ROIData.meanPatlakMap_PSperMin(1,iROI)=temp.mean;
+            
+            temp=measure4D(Patlak_k_perMin_map,masks{iROI});
+            ROIData.medianPatlakMap_k_perMin(1,iROI)=temp.median;
+            ROIData.meanPatlakMap_k_perMin(1,iROI)=temp.mean;
+            
+            temp=measure4D(Patlak_vB_map,masks{iROI});
+            ROIData.medianPatlakMap_vB(1,iROI)=temp.median;
+            ROIData.meanPatlakMap_vB(1,iROI)=temp.mean;
         end
     end
     
@@ -106,6 +125,15 @@ NIgnorePatlakPlot = max([opts.NIgnore sum(ROIData.mean_conc_mM(:,end) < 0.2)]);
 [ROIData.meanPatlak, ROIData.meanConcFit_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakFast',struct('NIgnore',opts.NIgnore,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
 [ROIData.medianPatlakLinear, ROIData.medianConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.median_conc_mM(:,1:end-1),ROIData.median_conc_mM(:,end),'PatlakLinear',struct('NIgnore',NIgnorePatlakPlot,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
 [ROIData.meanPatlakLinear, ROIData.meanConcFitLinear_mM]=DCEFunc_fitModel(acqPars.tRes_s,ROIData.mean_conc_mM(:,1:end-1),ROIData.mean_conc_mM(:,end),'PatlakLinear',struct('NIgnore',NIgnorePatlakPlot,'PatlakFastRegMode',opts.ROIPatlakFastRegMode));
+%calculate derived parameters vB and k...
+ROIData.medianPatlak.vB=ROIData.medianPatlak.vP/(1-opts.Hct);
+ROIData.medianPatlak.k_perMin=ROIData.medianPatlak.PS_perMin./ROIData.medianPatlak.vB;
+ROIData.meanPatlak.vB=ROIData.meanPatlak.vP/(1-opts.Hct);
+ROIData.meanPatlak.k_perMin=ROIData.meanPatlak.PS_perMin./ROIData.meanPatlak.vB;
+ROIData.medianPatlakLinear.vB=ROIData.medianPatlakLinear.vP/(1-opts.Hct);
+ROIData.medianPatlakLinear.k_perMin=ROIData.medianPatlakLinear.PS_perMin./ROIData.medianPatlakLinear.vB;
+ROIData.meanPatlakLinear.vB=ROIData.meanPatlakLinear.vP/(1-opts.Hct);
+ROIData.meanPatlakLinear.k_perMin=ROIData.meanPatlakLinear.PS_perMin./ROIData.meanPatlakLinear.vB;
 
 %% loop through ROIs (excluding AIF) and plot data and results (using MEANS and MEDIANS)
 for iROI=1:NROIs %(excludes AIF)
@@ -115,18 +143,18 @@ for iROI=1:NROIs %(excludes AIF)
     meanMedian={'mean' 'median'};
     for iPlot=1:2 %loop through this twice to plot mean and median results
         figure(1)
-        set(gcf,'Units','centimeters','Position',[0,0,30,30],'PaperPositionMode','auto','DefaultTextInterpreter', 'none')
+        set(gcf,'Units','centimeters','Position',[0,0,20,30],'PaperPositionMode','auto','DefaultTextInterpreter', 'none')
         
         subplot(4,2,1) %signal intensity
         plot(ROIData.t_S,ROIData.([meanMedian{iPlot} 'SI'])(:,iROI),'b.:')
         xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} 'SI'])(:,iROI))-10 max(ROIData.([meanMedian{iPlot} 'SI'])(:,iROI))+10]);
-        title([maskNames{iROI} ':  SI'])
+        title([opts.ROILabels{iROI} ':  SI'])
         xlabel('time (s)');
         
         subplot(4,2,2) %enhancement
         plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI),'b.:')
         xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI))-1 max(ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI))+1]);
-        title([maskNames{iROI} ': enhancement (%)'])
+        title([opts.ROILabels{iROI} ': enhancement (%)'])
         xlabel('time (s)');
         line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
         
@@ -134,8 +162,8 @@ for iROI=1:NROIs %(excludes AIF)
         plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI),'b.:')
         hold on
         plot(ROIData.t_S,ROIData.([meanMedian{iPlot} 'ConcFit_mM'])(:,iROI),'k-') %plot fitted conc
-        xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI))-2e-3 max(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI))+2e-3]);
-        title([maskNames{iROI} ': [GBCA] with Patlak model fit (mM)'])
+        xlim([0 max(ROIData.t_S)]); ylim([min([ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI); ROIData.([meanMedian{iPlot} 'ConcFit_mM'])(:,iROI)])-1e-3 max([ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI); ROIData.([meanMedian{iPlot} 'ConcFit_mM'])(:,iROI)])+1e-3]);
+        title([opts.ROILabels{iROI} ': [GBCA] with Patlak model fit (mM)'])
         xlabel('time (s)');
         line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
         
@@ -163,7 +191,7 @@ for iROI=1:NROIs %(excludes AIF)
         subplot(4,2,8) %Patlak results
         title({...
             [strrep(opts.subjectCode,'_','-') ' (' meanMedian{iPlot} ')'];...
-            ['ROI: ' maskNames{iROI}];...
+            ['ROI: ' opts.ROILabels{iROI}];...
             ['Patlak / Patlak plot results:'];...
             ['PS (10^{-4} per min): ' num2str(1e4*ROIData.([meanMedian{iPlot} 'Patlak']).PS_perMin(1,iROI),'%.5f')...
             ' / ' num2str(1e4*ROIData.([meanMedian{iPlot} 'PatlakLinear']).PS_perMin(1,iROI),'%.5f')];...
@@ -186,7 +214,7 @@ for iROI=1:NROIs %(excludes AIF)
         plot(ROIData.([meanMedian{iPlot} 'PatlakLinear']).PatlakX(NIgnorePatlakPlot+1:end,iROI),ROIData.([meanMedian{iPlot} 'PatlakLinear']).PatlakYFit(NIgnorePatlakPlot+1:end,iROI),'b-')
         %xlim([min(ROIData.medianPatlakLinear.PatlakX(opts.NIgnore+1:end,iROI)) max(ROIData.medianPatlakLinear.PatlakX(opts.NIgnore+1:end,iROI))]); ylim([min(ROIData.medianPatlakLinear.PatlakY(opts.NIgnore+1:end,iROI)) max(ROIData.medianPatlakLinear.PatlakY(opts.NIgnore+1:end,iROI))]);
         %ylim([0 max(ROIData.medianPatlakLinear.PatlakY(opts.NIgnore+1:end,iROI))]);
-        title([maskNames{iROI} ': Patlak plot fit'])
+        title([opts.ROILabels{iROI} ': Patlak plot fit'])
         xlabel('X (s)'); ylabel('Y');
         
         %save figure
