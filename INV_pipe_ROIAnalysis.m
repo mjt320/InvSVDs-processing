@@ -74,11 +74,6 @@ for iROI=1:NROIs+1 %(includes AIF)
         [masks{iROI},temp] = spm_read_vols(spm_vol([DCEROIDir '/' maskNames{iROI} '.nii']));
     end
     
-    if isempty(find(masks{iROI}==1)) %if there are no voxels in the mask, don't process
-        disp(['Warning! Mask empty: ' DCEROIDir '/' maskNames{iROI} '.nii']);
-        continue;
-    end
-    
     %% Get ROI signals, FA and T1
     temp=measure4D(SI4D,masks{iROI}); ROIData.medianSI(:,iROI)=temp.median; ROIData.meanSI(:,iROI)=temp.mean;
     temp=measure4D(T1Map_s,masks{iROI}); ROIData.medianT1_s(1,iROI)=temp.median; ROIData.meanT1_s(1,iROI)=temp.mean;
@@ -136,12 +131,13 @@ ROIData.meanPatlakLinear.vB=ROIData.meanPatlakLinear.vP/(1-opts.Hct);
 ROIData.meanPatlakLinear.k_perMin=ROIData.meanPatlakLinear.PS_perMin./ROIData.meanPatlakLinear.vB;
 
 %% Calculate alternative ROI PK parameters using SXL fit
-[SXLData.mean SXLData.mean_enhancementPct_fit]=DCEFunc_fitPatlak_waterEx...
-    (acqPars.tRes_s,ROIData.mean_enhPct(:,1:end-1),ROIData.mean_conc_mM(:,4),opts.Hct,ROIData.meanT1_s(:,1:end-1),ROIData.meanT1_s(4),...
-    acqPars.TR_s,acqPars.TE_s,ROIData.meanFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts);
-[SXLData.median SXLData.median_enhancementPct_fit]=DCEFunc_fitPatlak_waterEx...
-    (acqPars.tRes_s,ROIData.median_enhPct(:,1:end-1),ROIData.median_conc_mM(:,4),opts.Hct,ROIData.medianT1_s(:,1:end-1),ROIData.medianT1_s(4),...
-    acqPars.TR_s,acqPars.TE_s,ROIData.medianFA_deg,opts.r1_permMperS,opts.r2s_permMperS,opts);
+[SXLData.mean, SXLData.mean_enhancementPct_fit]=DCEFunc_fitPatlak_waterEx...
+    (acqPars.tRes_s,ROIData.mean_enhPct(:,1:end-1),ROIData.mean_conc_mM(:,end),opts.Hct,ROIData.meanT1_s(:,1:end-1),ROIData.meanT1_s(end),...
+    acqPars.TR_s,acqPars.TE_s,ROIData.meanFA_deg,opts.r1_permMperS,opts.r2s_permMperS,struct('NIgnore',opts.NIgnore,'init_vP',opts.init_vP,'init_PS_perMin',opts.init_PS_perMin));
+[SXLData.median, SXLData.median_enhancementPct_fit]=DCEFunc_fitPatlak_waterEx...
+    (acqPars.tRes_s,ROIData.median_enhPct(:,1:end-1),ROIData.median_conc_mM(:,end),opts.Hct,ROIData.medianT1_s(:,1:end-1),ROIData.medianT1_s(end),...
+    acqPars.TR_s,acqPars.TE_s,ROIData.medianFA_deg,opts.r1_permMperS,opts.r2s_permMperS,struct('NIgnore',opts.NIgnore,'init_vP',opts.init_vP,'init_PS_perMin',opts.init_PS_perMin));
+
 %% loop through ROIs (excluding AIF) and plot data and results (using MEANS and MEDIANS)
 for iROI=1:NROIs %(excludes AIF)
     if ~exist([opts.DCEROIDir '/' maskNames{iROI} '.nii'],'file'); continue; end  %skip ROIs where mask doesn't exist
