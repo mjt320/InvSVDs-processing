@@ -6,6 +6,7 @@ if opts.overwrite==0 && exist([opts.DCENIIDir '/PatlakFast_PSperMin.nii'],'file'
 %% delete existing output files
 delete([opts.DCENIIDir '/*Patlak*.*']);
 delete([opts.DCENIIDir '/opts.mat']);
+delete([opts.DCENIIDir '/betDCE3D0000_mask_nan']);
 
 %% read concentration map
 Conc4DmMHdr=spm_vol([opts.DCENIIDir '/ConcmM.nii']);
@@ -41,9 +42,10 @@ SPMWrite4D(sConc4DmMHdr(1),DCEFunc_reshape(sPKPFast.vP/(1-opts.Hct),dims),opts.D
 SPMWrite4D(sConc4DmMHdr(1),DCEFunc_reshape((sPKPFast.PS_perMin*(1-opts.Hct))./sPKPFast.vP,dims),opts.DCENIIDir,'sPatlakFast_k_perMin',16);
 
 %% mask parameter maps (for display purposes)
+spm_imcalc([opts.DCENIIDir '/betDCE3D0000_mask.nii'],[opts.DCENIIDir '/betDCE3D0000_mask_nan.nii'],'i1.*(i1./i1)',struct('dtype',16));
 filesToMask={'PatlakFast_vP' 'PatlakFast_PSperMin' 'PatlakFast_vB' 'PatlakFast_k_perMin' 'sPatlakFast_vP' 'sPatlakFast_PSperMin' 'sPatlakFast_vB' 'sPatlakFast_k_perMin' };
 for iFile=1:size(filesToMask,2)
-    system(['fslmaths ' opts.DCENIIDir '/' filesToMask{iFile} ' -mul ' opts.DCENIIDir '/betDCE3D0000_mask ' opts.DCENIIDir '/bet_' filesToMask{iFile}]);
+    system(['fslmaths ' opts.DCENIIDir '/' filesToMask{iFile} ' -mul ' opts.DCENIIDir '/betDCE3D0000_mask_nan ' opts.DCENIIDir '/bet_' filesToMask{iFile}]);
     system(['fslchfiletype NIFTI ' opts.DCENIIDir '/bet_' filesToMask{iFile}]);
 end
 
