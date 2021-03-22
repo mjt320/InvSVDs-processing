@@ -2,7 +2,9 @@ function INV_pipe_processMasks(opts)
 %transform and process masks
 
 %return if overwrite mode is off and last ROI file exists...
-if opts.overwrite==0 && exist([opts.DCEROIDir '/' opts.ROINames{end} '.nii'],'file'); return; end 
+if opts.overwrite==0 && exist([opts.DCEROIDir '/' opts.ROINames{end} '.nii'],'file'); return; end
+
+if ~isfield(opts,'structCoRegMode'); opts.structCoRegMode=0; end
 
 NROIs=size(opts.ROINames,2); %number of ROIs
 
@@ -17,14 +19,24 @@ for iROI=1:NROIs
         continue;
     end
     
-    system(['flirt -in ' opts.maskDir{iROI} '/' opts.maskFile{iROI} ' -ref ' opts.DCENIIDir '/meanPre -out ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' -init ' opts.DCENIIDir '/struct2DCE.txt -applyxfm']); %transform mask (just for checking)
+    if opts.structCoRegMode == 4
+        system(['tractor reg-apply ' opts.maskDir{iROI} '/' opts.maskFile{iROI} ' ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' TransformName:' opts.DCENIIDir '/rStructImage.xfmb'])
+    else
+        system(['flirt -in ' opts.maskDir{iROI} '/' opts.maskFile{iROI} ' -ref ' opts.DCENIIDir '/meanPre -out ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' -init ' opts.DCENIIDir '/struct2DCE.txt -applyxfm']); %transform mask (just for checking)
+    end
     system(['fslmaths ' opts.DCEROIDir '/_r_' opts.ROINames{iROI} ' -thr ' num2str(opts.maskTheshold (iROI)) ' -bin ' opts.DCEROIDir '/_tr_' opts.ROINames{iROI} ' -odt char']); %threshold mask (just for checking)
     
-    system(['fslmaths ' opts.maskDir{iROI} '/' opts.maskFile{iROI} ' -kernel boxv ' num2str(opts.maskNErodePre(iROI)) ' -ero ' opts.DCEROIDir '/_e_' opts.ROINames{iROI}]); %erode mask in structural space            
-    system(['flirt -in ' opts.DCEROIDir '/_e_' opts.ROINames{iROI} ' -ref ' opts.DCENIIDir '/meanPre -out ' opts.DCEROIDir '/_re_' opts.ROINames{iROI} ' -init ' opts.DCENIIDir '/struct2DCE.txt -applyxfm']); %transform mask
+    system(['fslmaths ' opts.maskDir{iROI} '/' opts.maskFile{iROI} ' -kernel boxv ' num2str(opts.maskNErodePre(iROI)) ' -ero ' opts.DCEROIDir '/_e_' opts.ROINames{iROI}]); %erode mask in structural space
+    
+    if opts.structCoRegMode ==4
+        system(['tractor reg-apply ' opts.DCEROIDir '/_e_' opts.ROINames{iROI} ' ' opts.DCEROIDir '/_re_' opts.ROINames{iROI} ' TransformName:' opts.DCENIIDir '/rStructImage.xfmb'])
+    else
+        system(['flirt -in ' opts.DCEROIDir '/_e_' opts.ROINames{iROI} ' -ref ' opts.DCENIIDir '/meanPre -out ' opts.DCEROIDir '/_re_' opts.ROINames{iROI} ' -init ' opts.DCENIIDir '/struct2DCE.txt -applyxfm']); %transform mask
+    end
+    
     system(['fslmaths ' opts.DCEROIDir '/_re_' opts.ROINames{iROI} ' -thr ' num2str(opts.maskTheshold(iROI)) ' -bin ' opts.DCEROIDir '/_tre_' opts.ROINames{iROI} ' -odt char']); %threshold mask
-    system(['fslmaths ' opts.DCEROIDir '/_tre_' opts.ROINames{iROI} ' -kernel boxv ' num2str(opts.maskNErode(iROI)) ' -ero ' opts.DCEROIDir '/_etre_' opts.ROINames{iROI}]); %erode mask in DCE space      
-    fslchfiletype_all([opts.DCEROIDir '/*' opts.ROINames{iROI} '*.*'],'NIFTI');    
+    system(['fslmaths ' opts.DCEROIDir '/_tre_' opts.ROINames{iROI} ' -kernel boxv ' num2str(opts.maskNErode(iROI)) ' -ero ' opts.DCEROIDir '/_etre_' opts.ROINames{iROI}]); %erode mask in DCE space
+    fslchfiletype_all([opts.DCEROIDir '/*' opts.ROINames{iROI} '*.*'],'NIFTI');
     copyfile([opts.DCEROIDir '/_etre_' opts.ROINames{iROI} '.nii'],[opts.DCEROIDir '/' opts.ROINames{iROI} '.nii'])
 end
 

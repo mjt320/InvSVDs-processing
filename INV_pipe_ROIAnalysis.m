@@ -158,7 +158,7 @@ for iROI=1:NROIs %(excludes AIF)
         plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI),'b.:'); hold on;
         plot(ROIData.t_S,SXLData.([meanMedian{iPlot} '_enhancementPct_fit'])(:,iROI),'g');
         xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI))-1 max(ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI))+1]);
-        title([opts.ROILabels{iROI} ': enhancement (%)'])
+        title([opts.ROILabels{iROI} ': enhancement + SXL fit (%)'])
         xlabel('time (s)');
         line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
         
@@ -168,7 +168,7 @@ for iROI=1:NROIs %(excludes AIF)
         plot(ROIData.t_S,ROIData.([meanMedian{iPlot} 'ConcFit_mM'])(:,iROI),'k-') %plot fitted conc
         plot(ROIData.t_S,SXLData.(meanMedian{iPlot}).Ct_SXL_mM(:,iROI),'g')
         xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI))-2e-3 max(ROIData.([meanMedian{iPlot} '_conc_mM'])(:,iROI))+2e-3]);
-        title([maskNames{iROI} ': [GBCA] with Patlak model fit (mM)'])
+        title({[maskNames{iROI} ': [GBCA] with Patlak model fit (mM)']; ['(green SXL fit conc)']})
         xlabel('time (s)');
         line([0 max(ROIData.t_S)],[0 0],'LineStyle','-','Color','k')
         
