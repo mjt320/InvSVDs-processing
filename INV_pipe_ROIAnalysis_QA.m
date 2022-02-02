@@ -81,7 +81,7 @@ for iROI=1:NROIs
         xlim([0 max(ROIData.t_S)]); ylim([min(ROIData.([meanMedian{iPlot} 'SI'])(:,iROI))-10 max(ROIData.([meanMedian{iPlot} 'SI'])(:,iROI))+10]);
         title([opts.ROILabels{iROI} ' (' meanMedian{iPlot} '):  SI'])
         xlabel('time (s)');
-        disp('hello')
+
         subplot(2,2,2) %enhancement
         plot(ROIData.t_S,ROIData.([meanMedian{iPlot} '_enhPct'])(:,iROI),'b.:',...
             ROIData.t_S,ROIData.([meanMedian{iPlot} '_fit_enhPct'])(:,iROI),'k-'); hold on;
