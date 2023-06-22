@@ -8,6 +8,7 @@ if ~isfield(opts,'ROIPatlakFastRegMode'); opts.ROIPatlakFastRegMode='linear'; en
 
 if ~isfield(opts,'DCEFramesBaseIdx'); opts.DCEFramesBaseIdx=1:opts.DCENFramesBase; end %if indices for baseline are not specified, us all points from 1 to opts.DCENFramesBase
 
+
 %% make output directory and delete existing output files
 mkdir(opts.DCEROIProcDir); delete([opts.DCEROIProcDir '/*.*']);
 
@@ -28,10 +29,21 @@ end
 
 %% derive parameters
 NROIs=size(opts.ROINames,2); %number of ROIs excluding AIF
-NTimePoints=size(SI4D,1);
+NTimePoints=size(SI4D,4);
 FAMap_deg=kMap * acqPars.FA_deg; %obtain FA map by scaling nominal flip angle by k
 ROIData.t_S=((1:acqPars.DCENFrames)-0.5)*acqPars.tRes_s; %calculate time at centre of each acquisition relative to start of DCE - used only for plotting
 maskNames=[opts.ROINames opts.AIFName];
+
+if ~isfield(opts,'driftMedian')
+    opts.driftMedian=zeros(1,NROIs+1);
+else
+    opts.driftMedian=[opts.driftMedian 0]; %entry for AIF (no correction)
+end
+if ~isfield(opts,'driftMean')
+    opts.driftMean=zeros(1,NROIs+1);
+else
+    opts.driftMean=[opts.driftMean 0]; %entry for AIF (no correction)
+end
 
 %% initialise variables
 ROIData.medianSI=nan(acqPars.DCENFrames,NROIs+1); %array of signals (time,ROI). includes space for AIF
@@ -101,6 +113,10 @@ for iROI=1:NROIs+1 %(includes AIF)
     end
     
 end
+
+%% Apply drift correction to SI
+ROIData.medianSI = ROIData.medianSI - repmat(ROIData.medianSI(1,:),[NTimePoints,1]) .* repmat(opts.driftMedian/100,[NTimePoints,1]) .* (repmat(ROIData.t_S.',[1,NROIs+1]) - ROIData.t_S(1))/60;
+ROIData.meanSI = ROIData.meanSI - repmat(ROIData.meanSI(1,:),[NTimePoints,1]) .* repmat(opts.driftMean/100,[NTimePoints,1]) .* (repmat(ROIData.t_S.',[1,NROIs+1]) - ROIData.t_S(1))/60;
 
 %% Calculate ROI enhancements (includes AIF)
 ROIData.median_enhPct=DCEFunc_Sig2Enh(ROIData.medianSI,opts.DCEFramesBaseIdx);
